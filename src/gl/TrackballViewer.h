@@ -36,8 +36,7 @@
  TrackballViewer implements a virtual trackball interaction.
  The scene is expected to be contained in the unit sphere.
  */
-class TrackballViewer : public GlutViewer
-{
+class TrackballViewer : public GlutViewer {
 public:
     
     TrackballViewer(const char* _title, int _width, int _height);

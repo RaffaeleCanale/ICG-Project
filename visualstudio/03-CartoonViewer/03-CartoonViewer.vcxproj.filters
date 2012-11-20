@@ -6,20 +6,20 @@
       <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
     <Filter Include="Source Files\gl">
-      <UniqueIdentifier>{70020612-41f0-419c-a22f-d28999b4d4a4}</UniqueIdentifier>
+      <UniqueIdentifier>{db8e216f-7cbf-441c-8a72-9299e345181b}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files">
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
     </Filter>
     <Filter Include="Header Files\gl">
-      <UniqueIdentifier>{6667c53a-107e-4a38-8c0f-1e372642034c}</UniqueIdentifier>
+      <UniqueIdentifier>{c038b3e6-02c8-4bb5-8822-c9ff0e1a7913}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\math">
-      <UniqueIdentifier>{9f85133a-0fea-4cdb-a7e8-34b2d03a5af3}</UniqueIdentifier>
+      <UniqueIdentifier>{015f45d1-cbad-41e1-93fd-b9f95cb3dcfb}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\utils">
-      <UniqueIdentifier>{d898adb9-8402-453c-afb5-2b1c15e64c01}</UniqueIdentifier>
+      <UniqueIdentifier>{3ed5441c-2e7b-415e-bce2-ec77f4e6d6f2}</UniqueIdentifier>
     </Filter>
     <Filter Include="Resource Files">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
@@ -27,9 +27,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\exercises\03-CartoonViewer\CartoonViewer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\exercises\03-CartoonViewer\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -51,11 +48,11 @@
     <ClCompile Include="..\..\src\gl\TrackballViewer.cpp">
       <Filter>Source Files\gl</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\exercises\03-CartoonViewer\HDRViewer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\src\exercises\03-CartoonViewer\CartoonViewer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\gl\Camera3D.h">
       <Filter>Header Files\gl</Filter>
     </ClInclude>
@@ -103,6 +100,9 @@
     </ClInclude>
     <ClInclude Include="..\..\src\utils\StopWatch.h">
       <Filter>Header Files\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\exercises\03-CartoonViewer\HDRViewer.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

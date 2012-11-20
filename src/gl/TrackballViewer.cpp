@@ -20,82 +20,84 @@
 //== IMPLEMENTATION ========================================================== 
 
 
-TrackballViewer::
-TrackballViewer(const char* _title, int _width, int _height)
-: GlutViewer(_title, _width, _height)
-{
-  // init mouse buttons
-  for (int i=0; i<10; ++i)
-    button_down_[i] = false;
-  
-	
-  init();
+TrackballViewer::TrackballViewer(const char* _title, int _width, int _height): GlutViewer(_title, _width, _height) {
+	// init mouse buttons
+	for (int i=0; i<10; ++i) {
+		button_down_[i] = false;
+	}
+
+	init();
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-void 
-TrackballViewer::
-init()
-{
-  // OpenGL state
-  glClearColor(1.0, 1.0, 1.0, 0.0);
-  glColor4f(0.0, 0.0, 0.0, 1.0);
-  glDisable( GL_DITHER );
-  glEnable( GL_DEPTH_TEST );
+void TrackballViewer::init() {
+	// OpenGL state
+	// Set the color buffers to white, dunno why yet
+	glClearColor(1.0, 1.0, 1.0, 0.0);
 
-  set_scene_pos(Vector3(0.0, 0.0, 0.0), 1.0);
+	// Don't understand, see http://msdn.microsoft.com/en-us/library/windows/desktop/dd318429(v=vs.85).aspx
+	glColor4f(0.0, 0.0, 0.0, 1.0);
+
+	// "If enabled, dither color components or indices before they are written to the color buffer."
+	glDisable( GL_DITHER );
+
+	/* "If enabled, do depth comparisons and update the depth buffer. 
+	 * Note that even if the depth buffer exists and the depth mask is non-zero, 
+	 * the depth buffer is not updated if the depth test is disabled."
+	 */
+	glEnable( GL_DEPTH_TEST );
+
+	set_scene_pos(Vector3(0.0, 0.0, 0.0), 1.0);
 }
 
- 
+
 //-----------------------------------------------------------------------------
 
+/**
+ * Reshapes the window
+ */
+void TrackballViewer::reshape(int _w, int _h) {
+	width_  = _w; 
+	height_ = _h;
 
-void
-TrackballViewer::
-reshape(int _w, int _h)
-{
-  width_  = _w; 
-  height_ = _h;
-  
-  m_camera.setSize(_w,_h);
-  glViewport(0, 0, _w, _h);
-  glutPostRedisplay();
+	m_camera.setSize(_w,_h);
+
+	// Set the viewport with bottom left corner to (0,0) and given width/heigth
+	glViewport(0, 0, _w, _h);
+
+	// This method will make glut to call the display method for its next loop
+	glutPostRedisplay();
+	// the display method is the one called because it has been set so in the GlutViewer
 }
 
 
 //----------------------------------------------------------------------------
 // set scene to view position
-void
-TrackballViewer::
-set_scene_pos( const Vector3& _pos, float _radius )
-{
-  m_center = _pos;
-  // set camera radius so that is can observe the scene
-  m_camera.setRadius(_radius);  
-	
-  view_all();
+void TrackballViewer::set_scene_pos( const Vector3& _pos, float _radius ) {
+	m_center = _pos;
+	// set camera radius so that is can observe the scene
+	m_camera.setRadius(_radius);  
+
+	view_all();
 }
 
 
 
 //----------------------------------------------------------------------------
 // reset the camera so that it sees the whole scene
-void
-TrackballViewer::
-view_all()
-{
+void TrackballViewer::view_all() {
 	// move camera to world coordinate center
 	m_camera.translateWorld( - m_camera.origin() );
-	
+
 	// move camera to object center
 	m_camera.translateWorld( m_center );
-	
+
 	// move camera (zoom) so that object center is in negative view direction of camera
 	m_camera.zoomCamera(-1.0);
-	
+
 	// keep camera rotation center in camera coordinates
 	m_camera_rotation_depth = (m_camera.getTransformation() * m_center).z;
 }
@@ -106,37 +108,31 @@ view_all()
 //----------------------------------------------------------------------------
 
 
-bool
-TrackballViewer::
-map_to_sphere( int _x, int _y, Vector3& _v3D )
-{
-    if ( (_x >= 0) && (_x <= width_) && (_y >= 0) && (_y <= height_) ) 
-    {
-        double x  = (double)(_x - 0.5*width_)  / (double)width_;
-        double y  = (double)(0.5*height_ - _y) / (double)height_;
-        double sinx         = sin(M_PI * x * 0.5);
-        double siny         = sin(M_PI * y * 0.5);
-        double sinx2siny2   = sinx * sinx + siny * siny;
-        
-        _v3D.x = sinx;
-        _v3D.y = siny;
-        _v3D.z = sinx2siny2 < 1.0 ? sqrt(1.0 - sinx2siny2) : 0.0;
-        
-        return true;
-    }
-    else return false;
+bool TrackballViewer::map_to_sphere( int _x, int _y, Vector3& _v3D ) {
+	if ( (_x >= 0) && (_x <= width_) && (_y >= 0) && (_y <= height_) ) {
+		double x  = (double)(_x - 0.5*width_)  / (double)width_;
+		double y  = (double)(0.5*height_ - _y) / (double)height_;
+		double sinx         = sin(M_PI * x * 0.5);
+		double siny         = sin(M_PI * y * 0.5);
+		double sinx2siny2   = sinx * sinx + siny * siny;
+
+		_v3D.x = sinx;
+		_v3D.y = siny;
+		_v3D.z = sinx2siny2 < 1.0 ? sqrt(1.0 - sinx2siny2) : 0.0;
+
+		return true;
+	} else {
+		return false;
+	}
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-void 
-TrackballViewer::
-display()
-{
+void TrackballViewer::display() {
 	draw_scene(draw_mode_);	
-	
+
 	// switch back-buffer to front-buffer
 	glutSwapBuffers();
 }
@@ -147,227 +143,176 @@ display()
 //-----------------------------------------------------------------------------
 
 
-void 
-TrackballViewer::
-keyboard(int key, int x, int y) 
-{
-	//switch (key)
-	//{
-	//	default:
-	//	{
-			GlutViewer::keyboard(key, x, y);
-	//		break;
-	//	}
-	//}
+void TrackballViewer::keyboard(int key, int x, int y) {	
+	GlutViewer::keyboard(key, x, y);	
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-void
-TrackballViewer::
-special(int key, int x, int y)
-{
-	//switch (key)
-	//{			
-	//	default: 
-	//	{
-			GlutViewer::special(key, x, y);
-	//		break;
-	//	}
-	//}
+void TrackballViewer::special(int key, int x, int y) {
+	GlutViewer::special(key, x, y);
 }
 
 
 //-----------------------------------------------------------------------------
 
-void TrackballViewer::idle()
-{
+void TrackballViewer::idle() {
 	GlutViewer::idle();
 }
 
 //-----------------------------------------------------------------------------
 
-void 
-TrackballViewer::
-draw_scene(DrawMode _draw_mode)
-{
+void TrackballViewer::draw_scene(DrawMode _draw_mode) {
 	// clear screen
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	
+
 	glMatrixMode( GL_PROJECTION );
 	glLoadIdentity();
 	Matrix4 projectionMatrixGL = 
-	(m_camera.getProjectionMatrix() * m_camera.getTransformation().Inverse()).Transpose();
+		(m_camera.getProjectionMatrix() * m_camera.getTransformation().Inverse()).Transpose();
 	glMultMatrixd( projectionMatrixGL.dataBlock() );
-	
+
 	glMatrixMode( GL_MODELVIEW );
-    
-	
-  glMatrixMode( GL_MODELVIEW );
-  glLoadIdentity();
+
+
+	glMatrixMode( GL_MODELVIEW );
+	glLoadIdentity();
 	//Matrix4 modelViewMatrixGL = m_object.getTransformation().Transpose();
 	//glMultMatrixd( modelViewMatrixGL.dataBlock() );
-	
-	
-  glDisable(GL_LIGHTING);
-  glColor3f(0,0,0);
-  glutSolidTeapot(0.5);
-	
+
+
+	glDisable(GL_LIGHTING);
+	glColor3f(0,0,0);
+	glutSolidTeapot(0.5);
+
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-void 
-TrackballViewer::
-mouse(int button, int state, int x, int y)
-{
-  // mouse press
-  if (state == GLUT_DOWN)
-  {
-    last_x_ = x;
-    last_y_ = y;
-    last_point_ok_ = map_to_sphere( x, y, last_point_3D_ );
-    button_down_[button] = true;
-  }
+void TrackballViewer::mouse(int button, int state, int x, int y) {
+	// mouse press
+	if (state == GLUT_DOWN) {
+		last_x_ = x;
+		last_y_ = y;
+		last_point_ok_ = map_to_sphere( x, y, last_point_3D_ );
+		button_down_[button] = true;
+	} else {
+		// mouse release
+		last_point_ok_ = false;
+		button_down_[button] = false;
 
-
-  // mouse release
-  else
-  {
-    last_point_ok_ = false;
-    button_down_[button] = false;
-
-    // GLUT: button 3 or 4 -> mouse wheel clicked
-    if (button == 3)       
-      zoom(0, (int)(y - 0.05*width_));
-    else if (button == 4)
-      zoom(0, (int)(y + 0.05*width_));
-  }
+		// GLUT: button 3 or 4 -> mouse wheel clicked
+		if (button == 3)       {
+			zoom(0, (int)(y - 0.05*width_));
+		} else if (button == 4) {
+			zoom(0, (int)(y + 0.05*width_));
+		}
+	}
 
 	modifiers_ = glutGetModifiers();
-	
-  glutPostRedisplay();
+
+	glutPostRedisplay();
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-void 
-TrackballViewer::
-motion(int x, int y)
-{
-  // zoom
-  if ((button_down_[0] && button_down_[1]) ||
-			(button_down_[0] && (modifiers_==GLUT_ACTIVE_SHIFT)))
-  {
-    zoom(x, y);
-  }
+void TrackballViewer::motion(int x, int y) {
+	// zoom
+	if ((button_down_[0] && button_down_[1]) ||
+		(button_down_[0] && (modifiers_==GLUT_ACTIVE_SHIFT)))  {
+			zoom(x, y);
+	}  else if (button_down_[1] ||
+		(button_down_[0] && (modifiers_==GLUT_ACTIVE_ALT)))  {
 
-  // translation
-  else if (button_down_[1] ||
-					 (button_down_[0] && (modifiers_==GLUT_ACTIVE_ALT)))
-  {
-    translation(x, y);
-  }
 
-  // rotation
-  else if (button_down_[0])
-  {
-    rotation(x, y);
-  }
-	
-	
-  // remeber points
-  last_x_ = x;
-  last_y_ = y;
-  last_point_ok_ = map_to_sphere(x, y, last_point_3D_);
+			// translation
+			translation(x, y);
+	}  else if (button_down_[0])  {
+		// rotation
+		rotation(x, y);
+	}
 
-  glutPostRedisplay();
+
+	// remeber points
+	last_x_ = x;
+	last_y_ = y;
+	last_point_ok_ = map_to_sphere(x, y, last_point_3D_);
+
+	glutPostRedisplay();
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-void 
-TrackballViewer::
-rotation(int x, int y)
-{
-  if (last_point_ok_) 
-  {
-    Vector3  new_point_3D;
-    bool   new_point_ok;
+void TrackballViewer::rotation(int x, int y) {
+	if (last_point_ok_) {
+		Vector3  new_point_3D;
+		bool   new_point_ok;
 
-    new_point_ok = map_to_sphere(x, y, new_point_3D);
-    
-    if (new_point_ok)
-    {
-      Vector3 axis      = last_point_3D_.cross( new_point_3D );
-      float cos_angle =last_point_3D_.dot( new_point_3D );
+		new_point_ok = map_to_sphere(x, y, new_point_3D);
 
-      if (fabs(cos_angle) < 1.0) 
-      {
-		  axis.normalize();
-		  float angle = 2.0*acos(cos_angle);
-		  // rotate camera around point
-		  m_camera.rotateAroundAxisObject(Vector3(0,0,-m_camera_rotation_depth),axis,-angle);
-      }
-    }
-  }
+		if (new_point_ok) {
+			Vector3 axis      = last_point_3D_.cross( new_point_3D );
+			float cos_angle =last_point_3D_.dot( new_point_3D );
+
+			if (fabs(cos_angle) < 1.0) {
+				axis.normalize();
+				float angle = 2.0*acos(cos_angle);
+				// rotate camera around point
+				m_camera.rotateAroundAxisObject(Vector3(0,0,-m_camera_rotation_depth),axis,-angle);
+			}
+		}
+	}
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-void 
-TrackballViewer::
-translation(int x, int y)
-{
-  // change in x and y since last mouse event
-  float dx = -(x - last_x_)/float(width_);
-  float dy = -(y - last_y_)/float(height_);
-	
-  // transform world center into camera coordinates
-  Vector3 ptCamera = m_camera.getTransformation().Inverse() * m_center;
-		
-  // get depth, -1 du to negative viewing direction of OpenGL
-  double z = -ptCamera.z;
-		
+void TrackballViewer::translation(int x, int y) {
+	// change in x and y since last mouse event
+	float dx = -(x - last_x_)/float(width_);
+	float dy = -(y - last_y_)/float(height_);
+
+	// transform world center into camera coordinates
+	Vector3 ptCamera = m_camera.getTransformation().Inverse() * m_center;
+
+	// get depth, -1 du to negative viewing direction of OpenGL
+	double z = -ptCamera.z;
+
 	// find scaling of dx and dy from window coordiantes to near plane
 	// coordiantes and from there to camera coordinates at the object's depth
 	double near = m_camera.getNearPlane();
-    
-    double top, bottom, left, right;
-    m_camera.getScreenExtents(top, bottom, left, right);
-		
+
+	double top, bottom, left, right;
+	m_camera.getScreenExtents(top, bottom, left, right);
+
 	// translate the camera accordingly
 	float tx=2.0 * dx  * right / near * z;
 	float ty = -2.0 * dy * top / near * z;
 	m_camera.translateObject( Vector3( tx, ty, 0.0) );
-	
-	
+
+
 }
 
 
 //-----------------------------------------------------------------------------
 
 
-void 
-TrackballViewer::
-zoom(int x, int y)
-{
-  float dy = y - last_y_;
-  float h  = height_;
-	
-  float frac = dy / h;
-  float dist = m_camera.getRadius() *  frac * 3.0;
-	
+void TrackballViewer::zoom(int x, int y) {
+	float dy = y - last_y_;
+	float h  = height_;
+
+	float frac = dy / h;
+	float dist = m_camera.getRadius() *  frac * 3.0;
+
 	m_camera.translateObject( Vector3(0,0, dist ) );
 	m_camera_rotation_depth += dist;
 }

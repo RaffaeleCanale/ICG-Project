@@ -92,7 +92,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\src\exercises\03-CartoonViewer\CartoonViewer.cpp" />
+    <ClCompile Include="..\..\src\exercises\03-CartoonViewer\HDRViewer.cpp" />
     <ClCompile Include="..\..\src\exercises\03-CartoonViewer\main.cpp" />
     <ClCompile Include="..\..\src\gl\fbo.cpp" />
     <ClCompile Include="..\..\src\gl\GlutViewer.cpp" />
@@ -102,7 +102,7 @@
     <ClCompile Include="..\..\src\gl\TrackballViewer.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\src\exercises\03-CartoonViewer\CartoonViewer.h" />
+    <ClInclude Include="..\..\src\exercises\03-CartoonViewer\HDRViewer.h" />
     <ClInclude Include="..\..\src\gl\Camera3D.h" />
     <ClInclude Include="..\..\src\gl\fbo.h" />
     <ClInclude Include="..\..\src\gl\gl.h" />
