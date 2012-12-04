@@ -33,24 +33,7 @@ void HDRViewer::init(){
 	set_scene_pos(Vector3(0.0, 0.0, 0.0), 2.0);
 
 	// load shaders
-	m_DiffuseShader.create("Diffuse.vs", "Diffuse.fs");
-	m_TextureShader.create("tex.vs","tex.fs");
-	//m_depthShader.create("depth.vs", "depth.fs");
-	//m_edgeShader.create("edge.vs", "edge.fs");
-	//m_blendingShader.create("blending.vs","blending.fs");
-
-	// setup 1D color texture with 4 colors
-	/*
-	float  tex[12] =
-	{
-		0.2, 0.2, 0.2,
-		0.4, 0.4, 0.4,
-		0.6, 0.6, 0.6,
-		0.8, 0.8, 0.8
-	};
-
-	m_HDRShadingTexture.create(4, 1, GL_RGB, GL_RGB, GL_FLOAT, tex, GL_NEAREST);
-	//*/
+	m_DiffuseShader.create("Shaders/diffuse.vs", "Shaders/diffuse.fs");	
 }
 
 
@@ -60,40 +43,75 @@ void HDRViewer::init(){
 
 void HDRViewer::reshape(int _w, int _h) {
 	TrackballViewer::reshape(_w,_h);
-	
-	// resize framebuffer and textures
-	m_fbo.create(_w,_h, true);
-	
-	m_HDROutputTexture.create(_w,_h,GL_RGB,GL_RGB,GL_UNSIGNED_BYTE);
-	// try GL_RGB4, GL_RGB8, GL_RGB10, GL_RGB16 to see effect of edge precision
-	//m_depthTexture.create(_w,_h,GL_RGB16,GL_RGB,GL_UNSIGNED_BYTE);
-	//m_edgeTexture.create(_w,_h,GL_RGB,GL_RGB,GL_UNSIGNED_BYTE);
-	
-	// attach textures to frame buffer
-	m_fbo.attachTexture(GL_COLOR_ATTACHMENT0_EXT, m_HDROutputTexture.getID());
-	//m_fbo.attachTexture(GL_COLOR_ATTACHMENT1_EXT, m_depthTexture.getID());
-	//m_fbo.attachTexture(GL_COLOR_ATTACHMENT2_EXT, m_edgeTexture.getID());
-	
 }
 
 
 //-----------------------------------------------------------------------------
-
+// Unused
 void HDRViewer::loadMesh(const std::string& filenameOBJ, const std::string& filenameMTL) {
 	// load mesh from obj into m_mesh
-	Mesh3DReader::read( filenameOBJ, m_mesh, filenameMTL);
+	Mesh3DReader::read( filenameOBJ, m_planet, filenameMTL);
 
 	// calculate normals
-	m_mesh.calculateVertexNormals();
+	m_planet.calculateVertexNormals();
 	
 	// get bounding box & reset scene camera accordingly
 	Vector3 bbmin, bbmax;
-	m_mesh.calculateBoundingBox(bbmin, bbmax);
+	m_planet.calculateBoundingBox(bbmin, bbmax);
 	
 	double radius = 0.5*(bbmin - bbmax).length();
 	Vector3 center = 0.5*(bbmin + bbmax);
 	
 	set_scene_pos(center, radius);
+}
+
+void HDRViewer::buildSolarSystem() {
+
+	const char * planetName = "..\\..\\data\\planets\\mars.obj";
+	const char * sunName = "..\\..\\data\\sun\\sun.obj";
+
+	double sunScale = 200.0;
+	double planetScale = 50.0;
+	double planetTranslate = 2000.0;
+
+	// SUN -------
+	Mesh3DReader::read(sunName, m_sun);
+
+	if(m_sun.hasNormals()) {
+		m_sun.calculateVertexNormals();
+	}
+
+	//m_sun.setIdentity();
+	m_sun.translateObject(Vector3(planetTranslate, 0.0, 0.0));
+	
+	//m_light.translateObject(m_light.origin() - m_sun.origin());
+
+	m_sun.scaleObject(Vector3(sunScale, sunScale, sunScale));
+	
+	m_light.translateObject(Vector3(planetTranslate, 0.0, 0.0));
+
+	// PLANET -----
+	Mesh3DReader::read(planetName, m_planet);
+
+	if (m_planet.hasNormals()) {
+		m_planet.calculateVertexNormals();
+	}
+	
+	//m_planet.setIdentity();
+	
+	m_planet.scaleObject(Vector3(planetScale, planetScale, planetScale));
+
+
+	Vector3 bbmin, bbmax;
+	m_sun.calculateBoundingBox(bbmin, bbmax);
+	
+	double radius = 0.5*(bbmin - bbmax).length();
+	Vector3 center = 0.5*(bbmin + bbmax);
+	
+	radius = planetTranslate * 1.0;
+	set_scene_pos(center, radius);
+	//set_scene_pos(Vector3(0.0, 0.0, -1000.0), planetTranslate * 3.3);
+	//set_scene_pos(center, planetTranslate * 3.3);
 }
 
 
@@ -119,82 +137,109 @@ void HDRViewer::keyboard(int key, int x, int y) {
 
 
 void HDRViewer::draw_scene(DrawMode _draw_mode) {
-	// draw HDR shading
-	//m_fbo.bind(GL_COLOR_ATTACHMENT0_EXT);
-	//drawHDR();
-	//m_fbo.unbind();
-	
-	/*
-	// draw depth image
-	m_fbo.bind(GL_COLOR_ATTACHMENT1_EXT);
-	drawDepth();
-	m_fbo.unbind();
-	
-	// calculate edges on depth image
-	m_fbo.bind(GL_COLOR_ATTACHMENT2_EXT);
-	drawEdge();
-	m_fbo.unbind();
-	
-	// blend edges and HDR shading
-	//blendHDRAndEdge();
-	//*/
-	
+
 	// clear screen
 	glEnable(GL_DEPTH_TEST);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glDisable(GL_CULL_FACE);
 	glEnable(GL_MULTISAMPLE);
 	
-	m_TextureShader.bind(); 
-	
-	// set parameters
-	m_TextureShader.setMatrix4x4Uniform("worldcamera", m_camera.getTransformation().Inverse());
-	m_TextureShader.setMatrix4x4Uniform("projection", m_camera.getProjectionMatrix());
-	
-	/*
-	//stars
-	glDisable(GL_DEPTH_TEST);
-	m_Stars.setIdentity();
-	m_Stars.scaleObject(Vector3(m_starsScale, m_starsScale, m_starsScale));
-	m_Stars.translateWorld(Vector3(m_camera.origin()));
-	m_meshShaderTexture.setMatrix4x4Uniform("modelworld", m_Stars.getTransformation() );
-	m_Stars.getMaterial(0).m_diffuseTexture.bind();
-	m_meshShaderTexture.setIntUniform("texture", m_Stars.getMaterial(0).m_diffuseTexture.getLayer());
-	draw_object(m_meshShaderTexture, m_Stars);
-	glEnable(GL_DEPTH_TEST); 
-	
-	//sun
-	m_meshShaderTexture.setMatrix4x4Uniform("modelworld", m_Sun.getTransformation() );
-	m_Sun.getMaterial(0).m_diffuseTexture.bind();
-	m_meshShaderTexture.setIntUniform("texture", m_Sun.getMaterial(0).m_diffuseTexture.getLayer());
-	draw_object(m_meshShaderTexture, m_Sun);
-	
-	m_meshShaderTexture.unbind(); //*/
-	
-	//-------------------------------
-	
+
 	m_DiffuseShader.bind();
 	
-
 	m_DiffuseShader.setMatrix4x4Uniform("worldcamera", m_camera.getTransformation().Inverse());
 	m_DiffuseShader.setMatrix4x4Uniform("projection", m_camera.getProjectionMatrix());
 	m_DiffuseShader.setMatrix3x3Uniform("worldcameraNormal", m_camera.getTransformation().Transpose());
 	
-	// TODO Temp code here
-	//Vector3 lightPosInCamera = m_camera.getTransformation().Inverse() * m_light.origin();
-	Vector3 lightPosInCamera = m_camera.getTransformation().Inverse() * m_camera.origin();
+	
+	Vector3 lightPosInCamera = m_camera.getTransformation().Inverse() * m_light.origin();
+	//Vector3 lightPosInCamera = m_camera.getTransformation().Inverse() * m_camera.origin();
 
 	m_DiffuseShader.setVector3Uniform("lightposition", lightPosInCamera.x, lightPosInCamera.y, lightPosInCamera.z );
 	// TODO Again, temp light intensity
-	m_DiffuseShader.setVector3Uniform("lightcolor", 1.0, 1.0, 1.0);
+	m_DiffuseShader.setVector3Uniform("lightcolor", 1.0, 1.0, 0.0);
 
-	// Draw mesh	
-	draw_object(m_DiffuseShader, m_mesh, true);
+	// Draw mesh		
+	draw_object(m_DiffuseShader, m_planet, true);
+	draw_object(m_DiffuseShader, m_sun, true);
 
+	m_DiffuseShader.unbind();
 }
 
 
 //-----------------------------------------------------------------------------
+
+/*
+void HDRViewer::draw_object(Shader& sh, Mesh3D& mesh) {
+	
+	sh.setMatrix4x4Uniform("modelworld", mesh.getTransformation() );
+	
+	glEnableClientState(GL_VERTEX_ARRAY);
+	glEnableClientState(GL_NORMAL_ARRAY);
+	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+	
+	glVertexPointer( 3, GL_DOUBLE, 0, mesh.getVertexPointer() );
+	glNormalPointer( GL_DOUBLE, 0, mesh.getNormalPointer() );
+	glTexCoordPointer( 2, GL_DOUBLE, 0, mesh.getUvTextureCoordPointer() );
+	
+	for(unsigned int i = 0; i < mesh.getNumberOfParts(); i++)
+	{
+		glDrawElements( GL_TRIANGLES, mesh.getNumberOfFaces(i)*3, GL_UNSIGNED_INT, mesh.getVertexIndicesPointer(i) );
+	}
+	
+	glDisableClientState(GL_NORMAL_ARRAY);
+	glDisableClientState(GL_VERTEX_ARRAY);
+	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+	
+}//*/
+
+void HDRViewer::draw_object(Shader& sh, Mesh3D& mesh, bool showTexture) {
+		
+	sh.setMatrix4x4Uniform("modelworld", mesh.getTransformation() );
+	sh.setMatrix3x3Uniform("modelworldNormal", mesh.getTransformation().Inverse().Transpose());
+			
+	glEnableClientState(GL_VERTEX_ARRAY);
+	glEnableClientState(GL_NORMAL_ARRAY);
+	if(showTexture) {
+		glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+	}
+			
+	// NOTE: Use floats here!
+	glVertexPointer( 3, GL_DOUBLE, 0, mesh.getVertexPointer() );
+	glNormalPointer( GL_DOUBLE, 0, mesh.getNormalPointer() );
+	if(showTexture) {
+		glTexCoordPointer( 2, GL_DOUBLE, 0, mesh.getUvTextureCoordPointer() );
+	}	
+
+	for(unsigned int i = 0; i < mesh.getNumberOfParts(); i++)	{
+		bool hasTexture = showTexture && mesh.hasUvTextureCoord() && mesh.getMaterial(i).hasDiffuseTexture();
+
+		sh.setIntUniform("useTexture", hasTexture);
+		//sh.setFloatUniform("specularExp", mesh.getMaterial(i).m_specularExp);
+
+		sh.setVector3Uniform("diffuseColor", 
+							 mesh.getMaterial(i).m_diffuseColor.x, 
+							 mesh.getMaterial(i).m_diffuseColor.y, 
+							 mesh.getMaterial(i).m_diffuseColor.z );
+
+		if(hasTexture) {
+			mesh.getMaterial(i).m_diffuseTexture.bind();
+			sh.setIntUniform("texture", mesh.getMaterial(i).m_diffuseTexture.getLayer());			
+		}
+		glDrawElements( GL_TRIANGLES, mesh.getNumberOfFaces(i)*3, GL_UNSIGNED_INT, mesh.getVertexIndicesPointer(i) );
+		if(hasTexture) {
+			mesh.getMaterial(i).m_diffuseTexture.unbind();
+		}
+	}
+			
+	glDisableClientState(GL_NORMAL_ARRAY);
+	glDisableClientState(GL_VERTEX_ARRAY);
+	if(showTexture) {
+		glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+	}
+}
+
+/*
 void HDRViewer::drawHDR() {
 	
 	// clear screen
@@ -250,72 +295,8 @@ void HDRViewer::drawHDR() {
 	
 	//m_HDRShadingTexture.unbind();
 	m_DiffuseShader.unbind();
-}
+}//*/
 
-
-void HDRViewer::draw_object(Shader& sh, Mesh3D& mesh) {
-	
-	sh.setMatrix4x4Uniform("modelworld", mesh.getTransformation() );
-	
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glEnableClientState(GL_NORMAL_ARRAY);
-	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-	
-	glVertexPointer( 3, GL_DOUBLE, 0, mesh.getVertexPointer() );
-	glNormalPointer( GL_DOUBLE, 0, mesh.getNormalPointer() );
-	glTexCoordPointer( 2, GL_DOUBLE, 0, mesh.getUvTextureCoordPointer() );
-	
-	for(unsigned int i = 0; i < mesh.getNumberOfParts(); i++)
-	{
-		glDrawElements( GL_TRIANGLES, mesh.getNumberOfFaces(i)*3, GL_UNSIGNED_INT, mesh.getVertexIndicesPointer(i) );
-	}
-	
-	glDisableClientState(GL_NORMAL_ARRAY);
-	glDisableClientState(GL_VERTEX_ARRAY);
-	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	
-}
-
-void HDRViewer::draw_object(Shader& sh, Mesh3D& mesh, bool showTexture) {
-
-	sh.setMatrix4x4Uniform("modelworld", mesh.getTransformation() );
-	sh.setMatrix3x3Uniform("modelworldNormal", mesh.getTransformation().Inverse().Transpose());
-			
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glEnableClientState(GL_NORMAL_ARRAY);
-	if(showTexture) {
-		glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-	}
-			
-	glVertexPointer( 3, GL_DOUBLE, 0, mesh.getVertexPointer() );
-	glNormalPointer( GL_DOUBLE, 0, mesh.getNormalPointer() );
-	if(showTexture) {
-		glTexCoordPointer( 2, GL_DOUBLE, 0, mesh.getUvTextureCoordPointer() );
-	}	
-
-	for(unsigned int i = 0; i < mesh.getNumberOfParts(); i++)	{
-		sh.setIntUniform("useTexture", showTexture && mesh.getMaterial(i).hasDiffuseTexture());
-		sh.setVector3Uniform("diffuseColor", 
-							 mesh.getMaterial(i).m_diffuseColor.x, 
-							 mesh.getMaterial(i).m_diffuseColor.y, 
-							 mesh.getMaterial(i).m_diffuseColor.z );
-
-		if(showTexture && mesh.getMaterial(i).hasDiffuseTexture()) {
-			mesh.getMaterial(i).m_diffuseTexture.bind();
-			sh.setIntUniform("texture", mesh.getMaterial(i).m_diffuseTexture.getLayer());
-		}
-		glDrawElements( GL_TRIANGLES, mesh.getNumberOfFaces(i)*3, GL_UNSIGNED_INT, mesh.getVertexIndicesPointer(i) );
-		if(showTexture && mesh.getMaterial(i).hasDiffuseTexture()) {
-			mesh.getMaterial(i).m_diffuseTexture.unbind();
-		}
-	}
-			
-	glDisableClientState(GL_NORMAL_ARRAY);
-	glDisableClientState(GL_VERTEX_ARRAY);
-	if(showTexture) {
-		glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	}
-}
 
 //-----------------------------------------------------------------------------
 /*

@@ -76,8 +76,7 @@ typedef struct
 } TGA_HEADER;
 #pragma pack(pop)
 ///////////////////////////////////////////////////////////////////////////
-void Texture::create(const std::string& _fileName)
-{
+void Texture::create(const std::string& _fileName) {
 	std::ifstream stream(_fileName.c_str(), std::ios::binary);
 	assert(stream.is_open());
 	if(!stream.is_open()) return;
@@ -89,9 +88,8 @@ void Texture::create(const std::string& _fileName)
 	height_ = header.height;
 	unsigned int sizeImg = width_*height_;
 	char *data = new char[sizeImg*3];
-	stream.read(data, sizeImg*3);
-	for(unsigned int i = 0; i < sizeImg; i++)
-	{
+	stream.read(data, sizeImg*3);	
+	for(unsigned int i = 0; i < sizeImg; i++) {
 		unsigned pos = i*3;
 		unsigned char red = data[pos];
 		data[pos] = data[pos + 2];
@@ -110,6 +108,7 @@ void Texture::create(const std::string& _fileName)
 	stream.close();
 	delete [] data;
 }
+
 ///////////////////////////////////////////////////////////////////////////
 void Texture::write(const std::string& _fileName) const
 {

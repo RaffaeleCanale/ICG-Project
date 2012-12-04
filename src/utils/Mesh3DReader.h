@@ -68,8 +68,7 @@ class MaterialManager
 public:
 	//-----------------------------------------------------------------------------
 	// Load the obj file as a unique mesh
-	static bool read(const std::string& _filenameOBJ, Mesh3D& _mesh, const std::string& _filenameMTL = std::string())
-	{
+	static bool read(const std::string& _filenameOBJ, Mesh3D& _mesh, const std::string& _filenameMTL = std::string()) {
 		MaterialManager materialManager;
 		materialManager.materialsMap[STRING_DEFAULT] = 0;
 		materialManager.materials.push_back(new MeshMaterial);
@@ -80,20 +79,17 @@ public:
 		
 	}
 private:
-	static bool parseMTLFile(const std::string& _filenameMTL, MaterialManager& _materialsManager)
-	{
+	static bool parseMTLFile(const std::string& _filenameMTL, MaterialManager& _materialsManager){
 		std::ifstream myfile(_filenameMTL.c_str());
 		assert(myfile.is_open());
 		if(!myfile.is_open()) return false;
 		std::string buffer;
-		while(std::getline(myfile, buffer))
-		{
+		while(std::getline(myfile, buffer))		{
 			std::istringstream lineStream(buffer);
 			std::string word;
 			lineStream >> word;
 			std::transform(word.begin(), word.end(), word.begin(), ::tolower );
-			if(word == "newmtl")
-			{
+			if(word == "newmtl"){
 				std::string name;
 				lineStream >> name;
 				assert(_materialsManager.materialsMap.find(name) == _materialsManager.materialsMap.end());
@@ -141,8 +137,7 @@ private:
 		myfile.close();
 		return true;
 	}
-	static bool parseOBJFile(const std::string& _filenameOBJ, Mesh3D& _mesh, MaterialManager& _materialManager)
-	{
+	static bool parseOBJFile(const std::string& _filenameOBJ, Mesh3D& _mesh, MaterialManager& _materialManager)	{
 		std::ifstream myfile(_filenameOBJ.c_str());
 		if(!myfile.is_open()) printf("Could not open file %s\n", _filenameOBJ.c_str());
 		assert(myfile.is_open());
@@ -168,70 +163,55 @@ private:
 		std::vector<unsigned int> uvIndices; 
 		
 		
-		while(std::getline(myfile, buffer))
-		{
+		while(std::getline(myfile, buffer)) {
 			std::istringstream lineStream(buffer);
 			std::string word;
 			lineStream >> word;
 			std::transform(word.begin(), word.end(), word.begin(), ::tolower);
-			if(word == "mtllib")
-			{
+			if(word == "mtllib") {
 				lineStream >> _filenameMTL;
 				#ifdef WIN32
 					_filenameMTL = _filenameOBJ.substr(0, _filenameOBJ.find_last_of("\\")+1) + _filenameMTL;
 				#else
 					_filenameMTL = _filenameOBJ.substr(0, _filenameOBJ.find_last_of("/")+1) + _filenameMTL;
 				#endif
-				if(!parseMTLFile(_filenameMTL, _materialManager)) 
+				if(!parseMTLFile(_filenameMTL, _materialManager)) {
 					return false;
-			}
-			else if(word == "usemtl")
-			{
+				}
+			} else if(word == "usemtl")	{
 				lineStream >> currentMaterial;
 				if( _materialManager.materialsMap.find(currentMaterial) ==  _materialManager.materialsMap.end() ) {
 					printf("### Warning: Mesh3DReader::parseOBJFile - material %s unknown\n", currentMaterial.c_str());
 					currentMaterial = STRING_DEFAULT;
 				}
-			}
-			else if(word == "v")
-			{
+			} else if(word == "v")	{
 				//position
 				SSCANF(buffer.c_str(), "%*s %f %f %f", &v1, &v2, &v3);
 				positions.push_back(Vector3(v1,v2,v3));
-			}
-			else if(word == "vt")
-			{
+			} else if(word == "vt")	{
 				//texture
 				SSCANF(buffer.c_str(), "%*s %f %f", &v1, &v2);
 				uvs.push_back(Vector2(v1,v2));
-			}
-			else if(word == "vn")
-			{
+			} else if(word == "vn")	{
 				//normal
 				SSCANF(buffer.c_str(), "%*s %f %f %f", &v1, &v2, &v3);
 				normals.push_back(Vector3(v1,v2,v3));
-			}
-			else if (word == "f")
-			{
+			} else if (word == "f")	{
 				//face
 				line = buffer;
 				found1 = (int)line.find("/");
 				bool quad = false;
-				if(found1 == string::npos)
-				{
+				if(found1 == string::npos) {
 					//only vertex positions
 					int n = SSCANF(buffer.c_str(), "%*s %d %d %d %d", &id1, &id2, &id3, &id4);
 					if(n == 4) quad = true;
-				}
-				else 
-				{
+				} else {
 					//get the part of the string until the second index
 					tmp = line.substr(found1+1);
 					found2 = (int)tmp.find(" ");
 					tmp = tmp.substr(0,found2);
 					found2 = (int)tmp.find("/");
-					if(found2 == string::npos)
-					{
+					if(found2 == string::npos) {
 						//vertex - texture
 						int n = SSCANF(buffer.c_str(), "%*s %d/%d %d/%d %d/%d %d/%d", &id1, &tId1, &id2, &tId2, &id3, &tId3, &id4, &tId4);
 						if(n == 8) quad = true;
@@ -240,19 +220,14 @@ private:
 						uvIndices.push_back(tId3-1);
 						if(quad)
 							uvIndices.push_back(tId4-1);
-					}
-					else 
-					{
+					} else {
 						tmp = line.substr(found1+1);
 						found2 = (int)tmp.find("/");
-						if(found2 == 0)
-						{
+						if(found2 == 0) {
 							//vertex - normal
 							int n = SSCANF(buffer.c_str(), "%*s %d//%d %d//%d %d//%d %d//%d", &id1, &nId1, &id2, &nId2, &id3, &nId3, &id4, &nId4);
 							if(n == 8) quad = true;
-						}
-						else 
-						{
+						} else {
 							//vertex - texture - normal
 							int n = SSCANF(buffer.c_str(), "%*s %d/%d/%d %d/%d/%d %d/%d/%d %d/%d/%d", &id1, &tId1, &nId1, &id2, &tId2, &nId2, &id3, &tId3, &nId3, &id4, &tId4, &nId4);
 							if(n == 12) quad = true;
@@ -293,19 +268,15 @@ private:
 		typedef std::map<VertexMergingData, unsigned int, VertexMergingDataComparison> VertexMerginMap;
 		VertexMerginMap vertexMergingMap;
 		VertexMerginMap::iterator it;
-		for(unsigned int i = 0; i < positionIndices.size(); ++i)
-		{
+		for(unsigned int i = 0; i < positionIndices.size(); ++i) {
 			VertexMergingData vmd;
 			vmd.indexPosition = positionIndices[i];
 			if(!normalIndices.empty()) vmd.indexNormal = normalIndices[i];
 			if(!uvIndices.empty()) vmd.indexUV = uvIndices[i];
 			it = vertexMergingMap.find(vmd);
-			if(it != vertexMergingMap.end())
-			{
+			if(it != vertexMergingMap.end()) {
 				indicesMesh[i] = it->second;
-			}
-			else
-			{
+			} else {
 				indicesMesh[i] = (unsigned int)positionsMesh.size();
 				vertexMergingMap[vmd] = (unsigned int)positionsMesh.size();
 				positionsMesh.push_back(positions[positionIndices[i]]);
@@ -327,34 +298,27 @@ private:
 		MaterialPartMap materialPartMap;
 		MaterialPartMap::iterator itMaterialPart;
 		//Triangulate quads if any : work also with non convex quad
-		for(int i = 0, j = 0; i < (int)indicesMesh.size(); j++)
-		{
+		for(int i = 0, j = 0; i < (int)indicesMesh.size(); j++) {
 			unsigned int materialIndex = materials[j];
 			itMaterialPart = materialPartMap.find(materialIndex);
 			unsigned int position;
-			if(itMaterialPart == materialPartMap.end())
-			{
+			if(itMaterialPart == materialPartMap.end()) {
 				position = (unsigned int)indices.size();
 				materialPartMap[materialIndex] = position;
 				indices.push_back(std::vector<unsigned int>());
 				_mesh.getAllMaterials().push_back(_materialManager.materials[materialIndex]);
-			}
-			else
-			{
+			} else {
 				position = itMaterialPart->second;
 			}
 			unsigned int i1 = indicesMesh[i];
 			unsigned int i2 = indicesMesh[i+1];
 			unsigned int i3 = indicesMesh[i+2];
-			if(!quads[j])
-			{
+			if(!quads[j]) {
 				indices[position].push_back(i1);
 				indices[position].push_back(i2);
 				indices[position].push_back(i3);
 				i+=3;
-			}
-			else
-			{
+			} else {
 				Vector3 v1 = positionsMesh[i1];
 				Vector3 v2 = positionsMesh[i2];
 				Vector3 v3 = positionsMesh[i3];
@@ -367,17 +331,14 @@ private:
 
 				double a1 = v13.dot(v12);
 				double a2 = v13.dot(v14);
-				if((a1 >= 0 && a2 <= 0) || (a1 <= 0 && a2 >= 0))
-				{
+				if((a1 >= 0 && a2 <= 0) || (a1 <= 0 && a2 >= 0)) {
 					indices[position].push_back(i1);
 					indices[position].push_back(i2);
 					indices[position].push_back(i3);
 					indices[position].push_back(i1);
 					indices[position].push_back(i3);
 					indices[position].push_back(i4);
-				}
-				else
-				{
+				} else {
 					indices[position].push_back(i1);
 					indices[position].push_back(i2);
 					indices[position].push_back(i4);

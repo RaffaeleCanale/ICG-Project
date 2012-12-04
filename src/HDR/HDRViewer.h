@@ -32,23 +32,24 @@
 /*
  HDRViewer.
 */
-class HDRViewer : public TrackballViewer
-{
+class HDRViewer : public TrackballViewer {
 public:
    
   HDRViewer(const char* _title, int _width, int _height);
   
 	
   void loadMesh(const std::string& filenameOBJ, const std::string& filenameMTL = std::string());
+
+  void buildSolarSystem();
 	
 protected:
 
 	// overloaded GUI function
-  virtual void init();
+	virtual void init();
 	virtual void keyboard(int key, int x, int y);
-virtual void reshape(int w, int h); 
+	virtual void reshape(int w, int h); 
 	
-  virtual void draw_scene(DrawMode _draw_mode);
+	virtual void draw_scene(DrawMode _draw_mode);
 
 private:
 	void drawHDR();
@@ -56,7 +57,7 @@ private:
 	//void drawEdge();
 	//void blendHDRAndEdge();
 
-	void draw_object(Shader& sh, Mesh3D& mesh);
+	//void draw_object(Shader& sh, Mesh3D& mesh);
 	void draw_object(Shader& sh, Mesh3D& mesh, bool showTexture);
 
 	void renderFullScreenQuad();
@@ -68,12 +69,15 @@ protected:
 	FrameBufferObject m_fbo;
 	
 	// mesh object
-	Mesh3D m_mesh;
+	Mesh3D m_sun;
+	Mesh3D m_planet;
+
+	Light3D m_light;
 	
 	// HDR shader
 	Shader m_DiffuseShader;
 
-	Shader m_TextureShader;
+	Shader m_TextureShaderUnused;
 	
 	// depth shader
 	//Shader m_depthShader;

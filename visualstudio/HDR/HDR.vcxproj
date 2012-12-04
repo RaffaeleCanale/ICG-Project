@@ -100,9 +100,9 @@
     <ClCompile Include="..\..\src\gl\shader.cpp" />
     <ClCompile Include="..\..\src\gl\texture.cpp" />
     <ClCompile Include="..\..\src\gl\TrackballViewer.cpp" />
+    <ClCompile Include="..\..\src\HDR\Scenes\HDRPlanets.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\src\HDR\HDRViewer.h" />
     <ClInclude Include="..\..\src\gl\Camera3D.h" />
     <ClInclude Include="..\..\src\gl\fbo.h" />
     <ClInclude Include="..\..\src\gl\gl.h" />
@@ -113,6 +113,8 @@
     <ClInclude Include="..\..\src\gl\shader.h" />
     <ClInclude Include="..\..\src\gl\texture.h" />
     <ClInclude Include="..\..\src\gl\TrackballViewer.h" />
+    <ClInclude Include="..\..\src\HDR\HDRViewer.h" />
+    <ClInclude Include="..\..\src\HDR\Scenes\HDRPlanets.h" />
     <ClInclude Include="..\..\src\math\Matrix4.h" />
     <ClInclude Include="..\..\src\math\Vector2.h" />
     <ClInclude Include="..\..\src\math\Vector3.h" />

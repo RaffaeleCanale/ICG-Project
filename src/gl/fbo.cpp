@@ -13,26 +13,29 @@
 #include "gl.h"
 #include <cassert>
 #include <iostream>
+
 ///////////////////////////////////////////////////////////////////////////
+
 FrameBufferObject::FrameBufferObject() : frameBufferId_(0), renderBufferId_(0)
 {
-
 }
+
 ///////////////////////////////////////////////////////////////////////////
+
 FrameBufferObject::~FrameBufferObject()
 {
 	clear();
 }
+
 ///////////////////////////////////////////////////////////////////////////
+
 void FrameBufferObject::create(unsigned int _width,
 							   unsigned int _height,
-							   bool _withRenderBuffer)
-{
+							   bool _withRenderBuffer) {
 	clear();
 	glGenFramebuffersEXT(1, &frameBufferId_);
 	assert(frameBufferId_ != 0);
-	if(_withRenderBuffer)
-	{
+	if(_withRenderBuffer) {
 		glGenRenderbuffersEXT(1, &renderBufferId_);
 		assert(renderBufferId_ != 0);
 		glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, renderBufferId_);
@@ -43,41 +46,43 @@ void FrameBufferObject::create(unsigned int _width,
 		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 	}
 }
+
 ///////////////////////////////////////////////////////////////////////////
-void FrameBufferObject::attachTexture(unsigned int _position, unsigned int _textureID)
-{
+
+void FrameBufferObject::attachTexture(unsigned int _position, unsigned int _textureID) {
 	assert(frameBufferId_ != 0);
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, frameBufferId_);
 	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, _position, GL_TEXTURE_2D, _textureID, 0);
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 }
+
 ///////////////////////////////////////////////////////////////////////////
-void FrameBufferObject::bind(unsigned int _position) const
-{
+
+void FrameBufferObject::bind(unsigned int _position) const {
 	assert(frameBufferId_ != 0);
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, frameBufferId_);
 	glDrawBuffer(_position);
 	glReadBuffer(_position);
 
 }
+
 ///////////////////////////////////////////////////////////////////////////
-void FrameBufferObject::unbind() const
-{
+
+void FrameBufferObject::unbind() const {
 	assert(frameBufferId_ != 0);
 	glDrawBuffer(GL_NONE);
 	glReadBuffer(GL_NONE);
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 }
+
 ///////////////////////////////////////////////////////////////////////////
-void FrameBufferObject::clear()
-{
-	if(frameBufferId_ != 0)
-	{
+
+void FrameBufferObject::clear() {
+	if(frameBufferId_ != 0)	{
 		glDeleteFramebuffersEXT(1, &frameBufferId_);
 		frameBufferId_ = 0;
 	}
-	if(renderBufferId_ != 0)
-	{
+	if(renderBufferId_ != 0) {
 		glDeleteRenderbuffersEXT(1, &renderBufferId_);
 		renderBufferId_ = 0;
 	}

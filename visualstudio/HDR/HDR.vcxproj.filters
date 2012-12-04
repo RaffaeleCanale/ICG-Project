@@ -51,6 +51,9 @@
     <ClCompile Include="..\..\src\HDR\HDRViewer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\HDR\Scenes\HDRPlanets.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\gl\Camera3D.h">
@@ -102,6 +105,9 @@
       <Filter>Header Files\utils</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\HDR\HDRViewer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\HDR\Scenes\HDRPlanets.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
