@@ -37,6 +37,7 @@ class Shader
 		void setMatrix4x4Uniform(const std::string& _name, const float *_matrix) const;
 		void setMatrix4x4Uniform(const std::string& _name, const Matrix4 & _matrix) const;
 
+		void setFloatArray(const std::string& _name, const float * _array, int _count) const;
 	private:
 		int getUniformLocation(const std::string& _name) const;
 		void clear();

@@ -119,7 +119,10 @@ private:
 				#else
 				texturePath = _filenameMTL.substr(0, _filenameMTL.find_last_of("/")+1) + texturePath;
 				#endif
-				_materialsManager.materials.back()->m_diffuseTexture.create(texturePath);
+
+				float delta;
+				lineStream >> delta;
+				_materialsManager.materials.back()->m_diffuseTexture.createWithDelta(texturePath, delta);
 			}
 			else if(word == "map_bump")
 			{

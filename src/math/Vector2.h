@@ -102,6 +102,7 @@ public:
 	double length() const { return sqrt(lengthSquared()); }
 
 	// Vector2 Data
+	// NOTE: Use doubles (all file)
 	double x, y;
 };
 

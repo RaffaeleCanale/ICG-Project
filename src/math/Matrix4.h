@@ -297,6 +297,7 @@ public:
 	}
 	
 	// Vector3 Data
+	// NOTE: Use doubles
 	double m[4][4];
 };
 

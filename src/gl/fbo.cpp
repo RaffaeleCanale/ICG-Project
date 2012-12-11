@@ -32,10 +32,15 @@ FrameBufferObject::~FrameBufferObject()
 void FrameBufferObject::create(unsigned int _width,
 							   unsigned int _height,
 							   bool _withRenderBuffer) {
+	mWidth = _width;
+	mHeight = _height;
+								   
 	clear();
 	glGenFramebuffersEXT(1, &frameBufferId_);
 	assert(frameBufferId_ != 0);
+
 	if(_withRenderBuffer) {
+
 		glGenRenderbuffersEXT(1, &renderBufferId_);
 		assert(renderBufferId_ != 0);
 		glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, renderBufferId_);

@@ -27,7 +27,7 @@
 
 //== CLASS DEFINITION =========================================================
 
-
+#define DOWN_SAMPLE_PASSES 1
 	      
 /*
  HDRViewer.
@@ -51,33 +51,63 @@ protected:
 	
 	virtual void draw_scene(DrawMode _draw_mode);
 
-private:
-	void drawHDR();
-	//void drawDepth();
-	//void drawEdge();
-	//void blendHDRAndEdge();
+private:	
+	
+	void interpolateParameter(float * parameter, float min, float max, float delta, bool isCtrlPressed, bool isShiftPressed, bool cyclic);
+
+	void draw_elements();
+	void extractBrightAreas();
+	void renderBlur(float dx, float dy);
+	void blend();
 
 	//void draw_object(Shader& sh, Mesh3D& mesh);
-	void draw_object(Shader& sh, Mesh3D& mesh, bool showTexture);
+	void draw_object(Shader& sh, Mesh3D& mesh, bool showTexture, bool useModelWorlNormal);
 
 	void renderFullScreenQuad();
-	
+	void renderCustomScreenQuad();
+
+	//void renderHalfScreenQuad();
 	
 protected:
 	
 	// frame buffer object for render2texture
-	FrameBufferObject m_fbo;
+	FrameBufferObject mHdrBuffer;
+	FrameBufferObject mBloomBuffer;	
+
+	//FrameBufferObject mDownSampleBuffers[DOWN_SAMPLE_PASSES];
 	
 	// mesh object
 	Mesh3D m_sun;
 	Mesh3D m_planet;
+	Mesh3D m_planet2;
 
 	Light3D m_light;
-	
-	// HDR shader
-	Shader m_DiffuseShader;
+	Vector3 m_lightColor;
 
-	Shader m_TextureShaderUnused;
+	// HDR shader
+	Shader mDiffuseShader;
+	Shader mExtractBloomShader;
+	Shader mBlendShader;
+	Shader mSimpleShader;
+	
+	Shader mBlurShader;
+
+	Shader mBlurShader1;
+	Shader mBlurShader2;
+
+	Shader mNullShader;
+	
+
+	float mExposure;
+	float mDownSampleFactor;
+
+	float mBlurScale;
+	float mBlurStrength;
+	float mBlurSize;
+
+	float mBlurAlgorithmChoice;
+	Shader * mInUseBlurShader;
+
 	
 	// depth shader
 	//Shader m_depthShader;
@@ -92,7 +122,8 @@ protected:
 	//Texture m_HDRShadingTexture;
 	
 	// HDR output texture
-	Texture m_HDROutputTexture;
+	Texture mHdrTexture;
+	Texture mBloomTexture;
 	
 	// depth texture
 	//Texture m_depthTexture;

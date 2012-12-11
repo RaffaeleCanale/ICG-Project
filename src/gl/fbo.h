@@ -24,10 +24,15 @@ class FrameBufferObject
 		
 		void bind(unsigned int _position) const;
 		void unbind() const;
-	
+			
+		int getWidth() { return mWidth; }
+		int getHeight() { return mHeight; }
+
 	private:
 		void clear();
 		unsigned int frameBufferId_;
 		unsigned int renderBufferId_;
+
+		int mWidth, mHeight;
 };
 #endif

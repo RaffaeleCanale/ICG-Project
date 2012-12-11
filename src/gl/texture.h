@@ -32,6 +32,8 @@ public:
 				int _param = GL_LINEAR);
 	// Read RGB TGA file
 	void create(const std::string& _fileName);
+	void createWithDelta(const std::string& _fileName, float delta);
+
 	// Write the texture in a RGB TGA file
 	void write(const std::string& _fileName) const;
 
@@ -44,6 +46,9 @@ public:
 	
 	//Id of this texture
 	unsigned int getID() const;
+
+	unsigned int getWidth() { return width_; }
+	unsigned int getHeight() { return height_; }
 private:
 	void clear();
 	unsigned int id_;

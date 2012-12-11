@@ -125,6 +125,7 @@ public:
 	double length() const { return sqrt(lengthSquared()); }
 
 	// Vector3 Data
+	// NOTE: Use doubles here
 	double x, y, z;
 };
 

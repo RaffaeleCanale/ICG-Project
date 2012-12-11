@@ -22,7 +22,6 @@ int main(int argc, char **argv) {
 	argv[1] = "..\\..\\data\\earth\\earth.obj";
 	//argv[1] = "..\\..\\data\\planets\\mars.obj";
 
-
 	window.buildSolarSystem();
 
 	/*
@@ -33,4 +32,5 @@ int main(int argc, char **argv) {
 	}
 	//*/
 	glutMainLoop();
+	
 }

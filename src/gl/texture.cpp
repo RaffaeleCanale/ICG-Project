@@ -49,6 +49,8 @@ void Texture::create(unsigned int _width,
 	glTexImage2D(GL_TEXTURE_2D, 0, _internalFormat, width_, height_, 0, _format, _type, _data);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, _param);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, _param);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glBindTexture(GL_TEXTURE_2D, 0); 
@@ -98,10 +100,56 @@ void Texture::create(const std::string& _fileName) {
 	glGenTextures(1, &id_);
 	assert(id_ != 0);
 	glBindTexture(GL_TEXTURE_2D, id_);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width_, height_, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+	// NOTE: Change here, update here to LOAD HDR textures
+	//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width_, height_, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F_ARB, width_, height_, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
 	glGenerateMipmapEXT(GL_TEXTURE_2D);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glBindTexture(GL_TEXTURE_2D, 0); 
+	stream.close();
+	delete [] data;
+}
+
+void Texture::createWithDelta(const std::string& _fileName, float delta) {
+	std::ifstream stream(_fileName.c_str(), std::ios::binary);
+	assert(stream.is_open());
+	if(!stream.is_open()) return;
+	TGA_HEADER header;
+	stream.read((char *)(&header), sizeof(TGA_HEADER));
+	assert(header.width <= 4096 && header.height <= 4096 && header.imagetype == 2 && header.bits == 24);
+	clear();
+	width_ = header.width;
+	height_ = header.height;
+	unsigned int sizeImg = width_*height_;
+	char *data = new char[sizeImg*3];
+	stream.read(data, sizeImg*3);	
+
+	float* result = new float[sizeof(float)* 3 * sizeImg];
+	for(unsigned int i = 0; i < sizeImg; i++) {
+		unsigned pos = i*3;
+				
+		result[pos] = (float) (data[pos + 2] & 0xFF);
+		result[pos + 1] = (float) (data[pos + 1] & 0xFF);
+		result[pos + 2] = (float) (data[pos] & 0xFF);
+
+		for(unsigned int j = pos; j < pos + 3; j++) {
+			result[j] = (result[j] / 255.0) + delta;
+		}
+	}
+
+	glGenTextures(1, &id_);
+	assert(id_ != 0);
+	glBindTexture(GL_TEXTURE_2D, id_);
+	// NOTE: Change here, update here to LOAD HDR textures
+	//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width_, height_, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F_ARB, width_, height_, 0, GL_RGB, GL_FLOAT, result);
+
+	glGenerateMipmapEXT(GL_TEXTURE_2D);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glBindTexture(GL_TEXTURE_2D, 0); 
@@ -115,8 +163,8 @@ void Texture::write(const std::string& _fileName) const
 	assert(id_ != 0);
 	glBindTexture(GL_TEXTURE_2D, id_);
 	unsigned int sizeImg = width_*height_;
-	char *data = new char[sizeImg*3];
-	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+	float *data = new float[sizeImg*3];
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGB, GL_FLOAT, data);
 	std::ofstream stream(_fileName.c_str(), std::ios::binary);
 	assert(stream.is_open());
 	if(!stream.is_open()) return;
@@ -134,14 +182,22 @@ void Texture::write(const std::string& _fileName) const
 	header.bits = 24;              // image bits per pixel 8,16,24,32
 	header.descriptor = 0;         // image descriptor bits (vh flip bits)
 	stream.write((char*)(&header), sizeof(TGA_HEADER));
+	char * chars = new char[sizeImg*3];
 	for(unsigned int i = 0; i < sizeImg; i++)
 	{
 		unsigned pos = i*3;
-		unsigned char red = data[pos];
+		float red = data[pos];
 		data[pos] = data[pos + 2];
 		data[pos + 2] = red;
+
+		if(_fileName == "t1.tga" && red != 0.0) {
+			printf("Yeyyy");
+		}
+		chars[pos] = data[pos] * 255.0;
+		chars[pos+1] = data[pos+1] * 255.0;
+		chars[pos+2] = data[pos+2] * 255.0;
 	}
-	stream.write(data, sizeImg*3);
+	stream.write(chars, sizeImg*3);
 	stream.close();
 	delete [] data;
 	glBindTexture(GL_TEXTURE_2D, 0); 

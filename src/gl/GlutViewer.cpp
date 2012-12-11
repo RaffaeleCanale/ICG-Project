@@ -180,7 +180,6 @@ void GlutViewer::processmenu(int id) {
 * Keyboard pressed with the given key
 */
 void GlutViewer::keyboard(int key, int x, int y) {
-	printf("GlutViewer keyboard\n");
 	switch (key) {
 	case 'f': 
 		if (!fullscreen_) {

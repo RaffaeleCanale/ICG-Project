@@ -54,6 +54,12 @@
     <ClCompile Include="..\..\src\HDR\Scenes\HDRPlanets.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\HDR\DownSampler.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\gl\cubeMapTexture.cpp">
+      <Filter>Source Files\gl</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\gl\Camera3D.h">
@@ -109,6 +115,15 @@
     </ClInclude>
     <ClInclude Include="..\..\src\HDR\Scenes\HDRPlanets.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\HDR\DownSampler.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\math\Pairing.h">
+      <Filter>Header Files\math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\gl\cubeMapTexture.h">
+      <Filter>Header Files\gl</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

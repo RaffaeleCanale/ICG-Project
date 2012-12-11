@@ -33,7 +33,29 @@ void HDRViewer::init(){
 	set_scene_pos(Vector3(0.0, 0.0, 0.0), 2.0);
 
 	// load shaders
-	m_DiffuseShader.create("Shaders/diffuse.vs", "Shaders/diffuse.fs");	
+	mDiffuseShader.create("Shaders/diffuse.vs", "Shaders/diffuse.fs");
+	mSimpleShader.create("Shaders/texture.vs", "Shaders/texture.fs");
+	mExtractBloomShader.create("Shaders/bloom.vs", "Shaders/bloom.fs");
+	mBlendShader.create("Shaders/ToneMappingAndBlend.vs", "Shaders/ToneMappingAndBlend.fs");
+	mBlurShader.create("Shaders/blur.vs", "Shaders/blur.fs");
+	mNullShader.create("Shaders/null.vs", "Shaders/null.fs");
+
+	mBlurShader1.create("Shaders/blur1.vs", "Shaders/blur1.fs");
+	mBlurShader2.create("Shaders/blur2.vs", "Shaders/blur2.fs");
+
+
+	mExposure = 1.0;
+
+	mDownSampleFactor = 3.125; // 256x256
+	//mDownSampleFactor = 1.5625;
+	mDownSampleFactor = 4;
+	//mDownSampleFactor = 1; //tmp
+	mBlurScale = 1.0;
+	mBlurStrength = 1.0;
+	mBlurSize = 10.0;
+
+	mInUseBlurShader = &mBlurShader1;
+	mBlurAlgorithmChoice = 1.0;
 }
 
 
@@ -43,6 +65,17 @@ void HDRViewer::init(){
 
 void HDRViewer::reshape(int _w, int _h) {
 	TrackballViewer::reshape(_w,_h);
+
+	mHdrBuffer.create(_w, _h, true);
+	mBloomBuffer.create(_w / mDownSampleFactor, _h/mDownSampleFactor, false);
+
+	mHdrTexture.create(_w, _h, GL_RGBA16F_ARB, GL_RGB, GL_FLOAT);
+	mBloomTexture.create(_w/mDownSampleFactor, _h/mDownSampleFactor, GL_RGBA16F_ARB, GL_RGB, GL_FLOAT);
+	//mDownSampledTexture.create(_w/mDownSamplePasses, _h/mDownSamplePasses, GL_RGB16F_ARB, GL_RGB, GL_FLOAT);
+
+	mHdrBuffer.attachTexture(GL_COLOR_ATTACHMENT0_EXT, mHdrTexture.getID());
+	mBloomBuffer.attachTexture(GL_COLOR_ATTACHMENT0_EXT, mBloomTexture.getID());
+	//mDownSampleBuffer.attachTexture(GL_COLOR_ATTACHMENT0_EXT, mDownSampledTexture.getID());
 }
 
 
@@ -68,6 +101,7 @@ void HDRViewer::loadMesh(const std::string& filenameOBJ, const std::string& file
 void HDRViewer::buildSolarSystem() {
 
 	const char * planetName = "..\\..\\data\\planets\\mars.obj";
+	const char * planetName2 = "..\\..\\data\\planets\\jupiter.obj";
 	const char * sunName = "..\\..\\data\\sun\\sun.obj";
 
 	double sunScale = 200.0;
@@ -89,6 +123,7 @@ void HDRViewer::buildSolarSystem() {
 	m_sun.scaleObject(Vector3(sunScale, sunScale, sunScale));
 	
 	m_light.translateObject(Vector3(planetTranslate, 0.0, 0.0));
+	m_lightColor = Vector3(1.0, 1.0, 1.0);
 
 	// PLANET -----
 	Mesh3DReader::read(planetName, m_planet);
@@ -96,11 +131,22 @@ void HDRViewer::buildSolarSystem() {
 	if (m_planet.hasNormals()) {
 		m_planet.calculateVertexNormals();
 	}
-	
-	//m_planet.setIdentity();
-	
+		
 	m_planet.scaleObject(Vector3(planetScale, planetScale, planetScale));
 
+
+	// PLANET2 -----
+	Mesh3DReader::read(planetName2, m_planet2);
+
+	if (m_planet2.hasNormals()) {
+		m_planet2.calculateVertexNormals();
+	}
+		
+	double planetScale2 = planetScale * 1.5;
+	double planetTranslate2 = planetTranslate * .5;
+	m_planet2.translateObject(Vector3(planetTranslate2, 0.0, planetTranslate2));
+	m_planet2.scaleObject(Vector3(planetScale2, planetScale2, planetScale2));
+	
 
 	Vector3 bbmin, bbmax;
 	m_sun.calculateBoundingBox(bbmin, bbmax);
@@ -112,6 +158,8 @@ void HDRViewer::buildSolarSystem() {
 	set_scene_pos(center, radius);
 	//set_scene_pos(Vector3(0.0, 0.0, -1000.0), planetTranslate * 3.3);
 	//set_scene_pos(center, planetTranslate * 3.3);
+
+	
 }
 
 
@@ -120,10 +168,101 @@ void HDRViewer::buildSolarSystem() {
 
 
 void HDRViewer::keyboard(int key, int x, int y) {
-	switch (key) {
+	int modifiers = glutGetModifiers();
+
+	float delta = .1;
+	
+	int realKey = key;
+	bool shift = false;
+	bool ctrl = false;
+
+	if (modifiers == GLUT_ACTIVE_CTRL) {
+		realKey += 96;
+		ctrl = true;
+	} else if (modifiers == GLUT_ACTIVE_SHIFT) {
+		realKey += 32;
+		shift = true;
+	} else if (modifiers == GLUT_ACTIVE_SHIFT + GLUT_ACTIVE_CTRL) {
+		realKey += 96;
+		shift = true;
+		ctrl = true;
+	}
+
+	switch (realKey) {
 		case 'h':
 			printf("Help:\n");
-			printf("'h'\t-\thelp\n");
+			printf("'h'\t-\tHelp\n");
+			printf("'e'\t-\tChange exposure\n");
+			printf("'s'\t-\tChange blur scale\n");
+			printf("'b'\t-\tChange blur strength\n");
+			printf("'k'\t-\tChange blur size\n");
+			printf("'a'\t-\tChange blur algorithm\n");
+			break;
+
+		case 'e':
+			interpolateParameter(&mExposure, 0.0, 2.0, 0.1, ctrl, shift, false);
+			printf("Exposure; %f\n", mExposure);
+			break;
+
+		case 'd':
+			delta = ctrl ? mDownSampleFactor/2.0 : mDownSampleFactor;
+			//interpolateParameter(&mDownSampleFactor, 1.0, 12.5, delta, ctrl, shift);
+
+			//mBloomTexture.create(width_/mDownSampleFactor, height_/mDownSampleFactor, GL_RGBA16F_ARB, GL_RGB, GL_FLOAT);
+			//printf("Down sample factor: %f\n\t%fx%f\n", mDownSampleFactor, height_/mDownSampleFactor, width_/mDownSampleFactor);
+			printf("Not implemented yet");
+			break;
+
+		case 's':
+			interpolateParameter(&mBlurScale, 1.0, 200.0, mBlurAlgorithmChoice == 1 ? 1.0 : 10.0, ctrl, shift, false);
+			printf("Blur scale: %f\n", mBlurScale);
+			break;
+
+		case 'b':
+			interpolateParameter(&mBlurStrength, 0.0, 1.0, 0.1, ctrl, shift, false);
+			printf("Blur strength: %f\n", mBlurStrength);
+			break;
+
+		case 'k':
+			interpolateParameter(&mBlurSize, 1.0, 30.0, 1.0, ctrl, false, true);			
+			
+			if (mBlurAlgorithmChoice == 1.0 && mBlurSize >= 20.0) {
+				printf("Blur kernel size: %f (!)\n", mBlurSize);
+			} else {
+				printf("Blur kernel size: %f\n", mBlurSize);
+			}
+			if (!ctrl && mBlurSize == 20.0 && mBlurAlgorithmChoice == 1.0) {
+				printf("WARNING: Blur kernel size too high, performance may drop!\n");
+			}
+			
+			break;
+
+		case 'a':
+			interpolateParameter(&mBlurAlgorithmChoice, 1.0, 2.0, 1.0, ctrl, false, true);
+			switch ((int) mBlurAlgorithmChoice) {
+				case 1:
+					mInUseBlurShader = &mBlurShader1;
+					break;
+				case 2:
+					mInUseBlurShader = &mBlurShader2;
+					break;
+				default:
+					break;
+			}
+			printf("Using blur algorithm %f\n", mBlurAlgorithmChoice);
+			break;
+
+		case '2':
+			mInUseBlurShader = &mBlurShader2;
+			mBlurAlgorithmChoice = 2.0;
+			mBlurScale = 20.0;
+			mBlurStrength = 0.9;
+			mBlurSize = 10.0;
+
+			printf("Using blur algorithm 2 with:\n");
+			printf("Blur kernel size:\t%f\n", mBlurSize);
+			printf("Blur strength:\t%f\n", mBlurStrength);
+			printf("Blur scale:\t%f\n", mBlurScale);
 			break;
 		default:
 			TrackballViewer::keyboard(key, x, y);
@@ -133,70 +272,186 @@ void HDRViewer::keyboard(int key, int x, int y) {
 	glutPostRedisplay();
 }
 
+void HDRViewer::interpolateParameter(float * parameter, float min, float max, float delta, bool isCtrlPressed, bool isShiftPressed, bool cyclic) {
+	if (isShiftPressed) {
+		delta /= 10.0;
+	}
+	if (isCtrlPressed) {
+		delta = -delta;
+	}
+	*parameter += delta;
+	if (*parameter < min) {
+		*parameter = cyclic ? max : min;
+	} else if (*parameter > max) {
+		*parameter = cyclic ? min : max;
+	}
+}
+
 //-----------------------------------------------------------------------------
-
-
 void HDRViewer::draw_scene(DrawMode _draw_mode) {
 
+	//*
+	mHdrBuffer.bind(GL_COLOR_ATTACHMENT0_EXT);
+		draw_elements();
+	mHdrBuffer.unbind();
+	//*/
+
+	//*
+	mBloomBuffer.bind(GL_COLOR_ATTACHMENT0_EXT);
+		extractBrightAreas();
+	mBloomBuffer.unbind();
+	//*/
+	
+	//*
+	mBloomBuffer.bind(GL_COLOR_ATTACHMENT0_EXT);
+		renderBlur(1.0, 0.0);
+		renderBlur(0.0, 1.0);
+	mBloomBuffer.unbind();
+	//*/
+		
+	//*
+	blend();
+	//*/
+}
+
+void HDRViewer::draw_elements() {
+
 	// clear screen
+	//glEnable(GL_DEPTH_TEST);
+	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	//glDisable(GL_CULL_FACE);
+	//glEnable(GL_MULTISAMPLE);
+	
 	glEnable(GL_DEPTH_TEST);
+	glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glDisable(GL_CULL_FACE);
-	glEnable(GL_MULTISAMPLE);
-	
 
-	m_DiffuseShader.bind();
+	Matrix4 cameraInverse = m_camera.getTransformation().Inverse();
 	
-	m_DiffuseShader.setMatrix4x4Uniform("worldcamera", m_camera.getTransformation().Inverse());
-	m_DiffuseShader.setMatrix4x4Uniform("projection", m_camera.getProjectionMatrix());
-	m_DiffuseShader.setMatrix3x3Uniform("worldcameraNormal", m_camera.getTransformation().Transpose());
+	Vector3 lightPosInCamera = cameraInverse * m_light.origin();
+	
+	mDiffuseShader.bind();
+	//mHdrTexture.setLayer(0);
+	mHdrTexture.bind();
 	
 	
-	Vector3 lightPosInCamera = m_camera.getTransformation().Inverse() * m_light.origin();
-	//Vector3 lightPosInCamera = m_camera.getTransformation().Inverse() * m_camera.origin();
+	mDiffuseShader.setMatrix4x4Uniform("worldcamera", cameraInverse);
+	
+	mDiffuseShader.setMatrix4x4Uniform("projection", m_camera.getProjectionMatrix());
+	mDiffuseShader.setMatrix3x3Uniform("worldcameraNormal", m_camera.getTransformation().Transpose());
 
-	m_DiffuseShader.setVector3Uniform("lightposition", lightPosInCamera.x, lightPosInCamera.y, lightPosInCamera.z );
-	// TODO Again, temp light intensity
-	m_DiffuseShader.setVector3Uniform("lightcolor", 1.0, 1.0, 0.0);
+	mDiffuseShader.setVector3Uniform("lightposition", lightPosInCamera.x, lightPosInCamera.y, lightPosInCamera.z );
+	mDiffuseShader.setVector4Uniform("lightcolor", m_lightColor.x, m_lightColor.y, m_lightColor.z, 1.0);
 
 	// Draw mesh		
-	draw_object(m_DiffuseShader, m_planet, true);
-	draw_object(m_DiffuseShader, m_sun, true);
+	draw_object(mDiffuseShader, m_planet, true, true);
+	draw_object(mDiffuseShader, m_planet2, false, true);
+	mDiffuseShader.unbind();
 
-	m_DiffuseShader.unbind();
+	mSimpleShader.bind();
+	
+	mSimpleShader.setMatrix4x4Uniform("worldcamera", cameraInverse);
+	
+	mSimpleShader.setMatrix4x4Uniform("projection", m_camera.getProjectionMatrix());
+	//m_LightShader.setMatrix3x3Uniform("worldcameraNormal", m_camera.getTransformation().Transpose());
+	draw_object(mSimpleShader, m_sun, true, false);
+	
+	
+
+	mSimpleShader.unbind();
+	mHdrTexture.unbind();
 }
 
 
-//-----------------------------------------------------------------------------
+void HDRViewer::extractBrightAreas() {
+	glDisable(GL_DEPTH_TEST);	
 
-/*
-void HDRViewer::draw_object(Shader& sh, Mesh3D& mesh) {
 	
-	sh.setMatrix4x4Uniform("modelworld", mesh.getTransformation() );
+	mHdrTexture.bind();
+
+	mExtractBloomShader.bind();
+		
+	mExtractBloomShader.setIntUniform("texture", mHdrTexture.getLayer());
+	mExtractBloomShader.setFloatUniform("treshold", 7);
 	
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glEnableClientState(GL_NORMAL_ARRAY);
-	glEnableClientState(GL_TEXTURE_COORD_ARRAY);
 	
-	glVertexPointer( 3, GL_DOUBLE, 0, mesh.getVertexPointer() );
-	glNormalPointer( GL_DOUBLE, 0, mesh.getNormalPointer() );
-	glTexCoordPointer( 2, GL_DOUBLE, 0, mesh.getUvTextureCoordPointer() );
+	renderCustomScreenQuad();
+
 	
-	for(unsigned int i = 0; i < mesh.getNumberOfParts(); i++)
-	{
-		glDrawElements( GL_TRIANGLES, mesh.getNumberOfFaces(i)*3, GL_UNSIGNED_INT, mesh.getVertexIndicesPointer(i) );
+	mExtractBloomShader.unbind();
+	mBloomTexture.bind();
+}
+
+void HDRViewer::renderBlur(float dx, float dy) {
+	
+	mBloomTexture.bind();
+	
+
+	mInUseBlurShader->bind();
+	mInUseBlurShader->setIntUniform("texture", mBloomTexture.getLayer());	
+	mInUseBlurShader->setVector2Uniform("orientation", dx*mBlurScale/width_, dy*mBlurScale/height_);
+	mInUseBlurShader->setIntUniform("blurAmount", (int)mBlurSize);
+
+	if (mBlurAlgorithmChoice == 1) {		
+		mInUseBlurShader->setFloatUniform("blurStrength", mBlurStrength);
+
+	} else if (mBlurAlgorithmChoice == 2) {
+		//float samples[10] = {-0.08, -0.05, -0.03, -0.02, -0.01, 0.01, 0.02, 0.03, 0.05, 0.08};
+		float * samples = new float[(int) mBlurSize];
+		float blurStart = - mBlurStrength;
+		float blurWidth = -2.0 * blurStart;
+		for (int i = 0; i < mBlurSize; i++) {
+			samples[i] = blurStart + blurWidth*(float(i)/(mBlurSize-1.0));
+		}
+
+		mInUseBlurShader->setFloatArray("samples", samples, 10);		
 	}
 	
-	glDisableClientState(GL_NORMAL_ARRAY);
-	glDisableClientState(GL_VERTEX_ARRAY);
-	glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+	renderCustomScreenQuad();
 	
-}//*/
+	mInUseBlurShader->unbind();
+}
 
-void HDRViewer::draw_object(Shader& sh, Mesh3D& mesh, bool showTexture) {
+void HDRViewer::blend() {
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glDisable(GL_DEPTH_TEST);
+	
+	mBlendShader.bind();
+	mBlendShader.setFloatUniform("exposure", mExposure);
+	mBlendShader.setFloatUniform("brightThreshold", 1.2f);
+
+	//*
+	mHdrTexture.setLayer(0);
+	mHdrTexture.bind();
+	mBlendShader.setIntUniform("texture", mHdrTexture.getLayer());//*/
+	/*
+	mBloomTexture.setLayer(0);
+	mBloomTexture.bind();
+	mBlendShader.setIntUniform("texture", mBloomTexture.getLayer());//*/
+
+	//*
+	mBloomTexture.setLayer(1);
+	mBloomTexture.bind();
+	mBlendShader.setIntUniform("bloom", mBloomTexture.getLayer());//*/
+	/*
+	mDownSampledTexture.setLayer(1);
+	mDownSampledTexture.bind();
+	mBlendShader.setIntUniform("bloom", mDownSampledTexture.getLayer());//*/
+
+	//mBloomTexture.write("Tests\\bloom.tga");
+
+	renderFullScreenQuad();
+
+	mBlendShader.unbind();
+}
+
+
+void HDRViewer::draw_object(Shader& sh, Mesh3D& mesh, bool showTexture, bool useModelWorlNormal) {
 		
 	sh.setMatrix4x4Uniform("modelworld", mesh.getTransformation() );
-	sh.setMatrix3x3Uniform("modelworldNormal", mesh.getTransformation().Inverse().Transpose());
+	if (useModelWorlNormal) {		
+		sh.setMatrix3x3Uniform("modelworldNormal", mesh.getTransformation().Inverse().Transpose());
+	}
 			
 	glEnableClientState(GL_VERTEX_ARRAY);
 	glEnableClientState(GL_NORMAL_ARRAY);
@@ -217,10 +472,10 @@ void HDRViewer::draw_object(Shader& sh, Mesh3D& mesh, bool showTexture) {
 		sh.setIntUniform("useTexture", hasTexture);
 		//sh.setFloatUniform("specularExp", mesh.getMaterial(i).m_specularExp);
 
-		sh.setVector3Uniform("diffuseColor", 
+		sh.setVector4Uniform("diffuseColor", 
 							 mesh.getMaterial(i).m_diffuseColor.x, 
 							 mesh.getMaterial(i).m_diffuseColor.y, 
-							 mesh.getMaterial(i).m_diffuseColor.z );
+							 mesh.getMaterial(i).m_diffuseColor.z, 1.0 );
 
 		if(hasTexture) {
 			mesh.getMaterial(i).m_diffuseTexture.bind();
@@ -239,104 +494,8 @@ void HDRViewer::draw_object(Shader& sh, Mesh3D& mesh, bool showTexture) {
 	}
 }
 
-/*
-void HDRViewer::drawHDR() {
-	
-	// clear screen
-	glEnable(GL_DEPTH_TEST);
-	glClearColor(1,1,1,0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	
-	m_DiffuseShader.bind(); 
-	
-	// set parameters
-	m_DiffuseShader.setMatrix4x4Uniform("worldcamera", m_camera.getTransformation().Inverse());
-	m_DiffuseShader.setMatrix4x4Uniform("projection", m_camera.getProjectionMatrix());
-	m_DiffuseShader.setMatrix4x4Uniform("modelworld", m_mesh.getTransformation() );
-	
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glEnableClientState(GL_NORMAL_ARRAY);
-	if(m_mesh.hasUvTextureCoord()) {
-		glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-	}
 
-	//m_HDRShadingTexture.setLayer(0);
-	//m_HDRShadingTexture.bind();
-	//m_HDRShader.setIntUniform("texture", m_HDRShadingTexture.getLayer());
-	
-	glVertexPointer( 3, GL_DOUBLE, 0, m_mesh.getVertexPointer() );
-	glNormalPointer( GL_DOUBLE, 0, m_mesh.getNormalPointer() );
-	if(m_mesh.hasUvTextureCoord()) {
-		glTexCoordPointer( 2, GL_DOUBLE, 0, m_mesh.getUvTextureCoordPointer() );
-	}
-	for(unsigned int i = 0; i < m_mesh.getNumberOfParts(); i++) {
-		bool hasTexture = m_mesh.hasUvTextureCoord() && m_mesh.getMaterial(i).hasDiffuseTexture();
-		hasTexture = false;
-
-		m_DiffuseShader.setIntUniform("useTexture", hasTexture);
-		m_DiffuseShader.setVector3Uniform("diffuseColor", 
-										  m_mesh.getMaterial(i).m_diffuseColor.x, 
-										  m_mesh.getMaterial(i).m_diffuseColor.y, 
-										  m_mesh.getMaterial(i).m_diffuseColor.z );
-		if(hasTexture) {
-			m_mesh.getMaterial(i).m_diffuseTexture.bind();
-			m_DiffuseShader.setIntUniform("textureDiffuse", m_mesh.getMaterial(i).m_diffuseTexture.getLayer());
-		}
-		glDrawElements( GL_TRIANGLES, m_mesh.getNumberOfFaces(i)*3, GL_UNSIGNED_INT, m_mesh.getVertexIndicesPointer(i) );
-		if(hasTexture) {
-			m_mesh.getMaterial(i).m_diffuseTexture.unbind();
-		}
-	}
-	
-	glDisableClientState(GL_NORMAL_ARRAY);
-	glDisableClientState(GL_VERTEX_ARRAY);
-	if(m_mesh.hasUvTextureCoord())
-		glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	
-	//m_HDRShadingTexture.unbind();
-	m_DiffuseShader.unbind();
-}//*/
-
-
-//-----------------------------------------------------------------------------
-/*
-void HDRViewer::drawDepth() {
-	
-	// clear screen
-	glEnable(GL_DEPTH_TEST);
-	glClearColor(0,0,0,0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	
-	//m_depthShader.bind(); 
-	
-	// set parameters
-	m_depthShader.setMatrix4x4Uniform("worldcamera", m_camera.getTransformation().Inverse());
-	m_depthShader.setMatrix4x4Uniform("projection", m_camera.getProjectionMatrix());
-	m_depthShader.setMatrix4x4Uniform("modelworld", m_mesh.getTransformation() );
-	m_depthShader.setFloatUniform("near",m_camera.getNearPlane());
-	m_depthShader.setFloatUniform("far",m_camera.getFarPlane());
-	
-	glEnableClientState(GL_VERTEX_ARRAY);
-	
-	glVertexPointer( 3, GL_DOUBLE, 0, m_mesh.getVertexPointer() );
-	
-	for(unsigned int i = 0; i < m_mesh.getNumberOfParts(); i++)
-	{
-		glDrawElements( GL_TRIANGLES, m_mesh.getNumberOfFaces(i)*3, GL_UNSIGNED_INT, m_mesh.getVertexIndicesPointer(i) );
-	}
-
-	glDisableClientState(GL_VERTEX_ARRAY);
-	
-	m_depthShader.unbind();
-	
-}
-
-//*/
-//-----------------------------------------------------------------------------
-
-void 
-HDRViewer::
-renderFullScreenQuad() {
+void HDRViewer::renderFullScreenQuad() {
 	// render full screen quad (note that vertex coordinates are already in opengl coordinates, so no transformation required!)
 	glBegin(GL_QUADS);
 	glMultiTexCoord2fARB(GL_TEXTURE0_ARB, 0.0f, 0.0f);
@@ -350,53 +509,16 @@ renderFullScreenQuad() {
 	glEnd();
 }
 
-
-//-----------------------------------------------------------------------------
-/*
-void 
-HDRViewer::
-drawEdge() {
-	
-	// clear screen
-	glDisable(GL_DEPTH_TEST);
-	
-	m_edgeShader.bind(); 
-	m_depthTexture.setLayer(0);
-	m_depthTexture.bind();
-	m_edgeShader.setIntUniform("texture",m_depthTexture.getLayer());
-	m_edgeShader.setFloatUniform("dx",1.0/width_);
-	m_edgeShader.setFloatUniform("dy",1.0/height_);
-	
-	// render a quad over full image
-	renderFullScreenQuad();
-	
-	m_edgeShader.unbind();
-	
+void HDRViewer::renderCustomScreenQuad() {
+	// render full screen quad (note that vertex coordinates are already in opengl coordinates, so no transformation required!)
+	float vertexA = 1.0f;
+	float vertexB = -1.0f;
+	float texCoordA = mDownSampleFactor;
+	float texCoordB = 0.0f;
+	glBegin(GL_QUADS); 
+		glTexCoord2f(texCoordA, texCoordA);	glVertex2f(vertexA, vertexA);
+		glTexCoord2f(texCoordA, texCoordB);	glVertex2f(vertexA, vertexB);
+		glTexCoord2f(texCoordB ,texCoordB);	glVertex2f(vertexB, vertexB);
+		glTexCoord2f(texCoordB, texCoordA);	glVertex2f(vertexB, vertexA);
+	glEnd();
 }
-//*/
-/*
-//-----------------------------------------------------------------------------
-void 
-HDRViewer::
-blendHDRAndEdge() {
-	
-	// clear screen
-	glDisable(GL_DEPTH_TEST);
-	
-	m_blendingShader.bind();
-	m_HDROutputTexture.setLayer(0);
-	m_HDROutputTexture.bind();
-	m_blendingShader.setIntUniform("texture1",m_HDROutputTexture.getLayer());
-	m_edgeTexture.setLayer(1);
-	m_edgeTexture.bind();
-	m_blendingShader.setIntUniform("texture2",m_edgeTexture.getLayer());
-	
-	
-	// render a quad over full image
-	renderFullScreenQuad();
-	
-	m_blendingShader.unbind();
-}
-//*/
-
-//=============================================================================

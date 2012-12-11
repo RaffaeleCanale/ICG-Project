@@ -193,7 +193,10 @@ void Shader::setMatrix3x3Uniform(const std::string& _name, const float *_matrix)
 	glUniformMatrix3fv(getUniformLocation(_name.c_str()), 1, false, _matrix);
 }
 
-
+void Shader::setFloatArray(const std::string& _name, const float * _array, int _count) const {
+	assert(programObj_ != 0);
+	glUniform1fv(getUniformLocation(_name.c_str()), _count, _array);	
+}
 ///////////////////////////////////////////////////////////////////////////
 void Shader::setMatrix3x3Uniform(const std::string& _name, const Matrix4 & _matrix) const {
 	assert(programObj_ != 0);

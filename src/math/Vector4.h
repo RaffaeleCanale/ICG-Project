@@ -107,6 +107,7 @@ public:
 	double length() const { return sqrt(lengthSquared()); }
 
 	// Vector4 Data
+	// NOTE: Use doubles
 	double x, y, z, w;
 };
 

@@ -172,7 +172,10 @@ void TrackballViewer::draw_scene(DrawMode _draw_mode) {
 	glLoadIdentity();
 	Matrix4 projectionMatrixGL = 
 		(m_camera.getProjectionMatrix() * m_camera.getTransformation().Inverse()).Transpose();
-	glMultMatrixd( projectionMatrixGL.dataBlock() );
+
+	// NOTE: Changed this line below, really, really not sure about it!
+	//glMultMatrixd( projectionMatrixGL.dataBlock() );
+	glOrtho(0.0f, 1.0f, 0.0f, 1.0f, -1.0, 1.0);
 
 	glMatrixMode( GL_MODELVIEW );
 
@@ -212,7 +215,6 @@ void TrackballViewer::mouse(int button, int state, int x, int y) {
 			zoom(0, (int)(y + 0.05*width_));
 		}
 	}
-
 	modifiers_ = glutGetModifiers();
 
 	glutPostRedisplay();
