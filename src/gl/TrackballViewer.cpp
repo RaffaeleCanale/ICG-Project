@@ -151,7 +151,7 @@ void TrackballViewer::keyboard(int key, int x, int y) {
 //-----------------------------------------------------------------------------
 
 
-void TrackballViewer::special(int key, int x, int y) {
+void TrackballViewer::special(int key, int x, int y) {	
 	GlutViewer::special(key, x, y);
 }
 

@@ -1,6 +1,7 @@
 
 #include <string>
 #include "gl.h"
+#include "../utils/Image.h"
 
 class CubeMapTexture {
 public:
@@ -8,8 +9,7 @@ public:
 	~CubeMapTexture();
 		
 	// Read RGB TGA file
-	void create(const std::string& _fileName);
-	void createWithDelta(const std::string& _fileName, float delta);
+	void create(const std::string& _dirName);
 	
 	void bind() const;
 	void unbind() const;
@@ -17,12 +17,11 @@ public:
 	//Id of this texture
 	unsigned int getID() const;
 
-	unsigned int getWidth() { return mWidth; }
-	unsigned int getHeight() { return mHeight; }
 private:
+	void readFile(std::string& fileName, float * data, float * width, float * height);
+
 	void clear();
 	
+	unsigned int facesId[6];
 	unsigned int mId;	
-	unsigned int mWidth;
-	unsigned int mHeight;
 };

@@ -16,6 +16,7 @@
 
 //== IMPLEMENTATION ========================================================== 
 
+#define bloom mBloomEffect[mBloomConfig]
 
 HDRViewer::HDRViewer(const char* _title, int _width, int _height): TrackballViewer(_title, _width, _height){
   init();
@@ -37,25 +38,42 @@ void HDRViewer::init(){
 	mSimpleShader.create("Shaders/texture.vs", "Shaders/texture.fs");
 	mExtractBloomShader.create("Shaders/bloom.vs", "Shaders/bloom.fs");
 	mBlendShader.create("Shaders/ToneMappingAndBlend.vs", "Shaders/ToneMappingAndBlend.fs");
-	mBlurShader.create("Shaders/blur.vs", "Shaders/blur.fs");
+	//mBlurShader.create("Shaders/blur.vs", "Shaders/blur.fs");
 	mNullShader.create("Shaders/null.vs", "Shaders/null.fs");
 
-	mBlurShader1.create("Shaders/blur1.vs", "Shaders/blur1.fs");
-	mBlurShader2.create("Shaders/blur2.vs", "Shaders/blur2.fs");
+	mBlurShader[0].create("Shaders/blur1.vs", "Shaders/blur1.fs");
+	mBlurShader[1].create("Shaders/blur2.vs", "Shaders/blur2.fs");
 
 
 	mExposure = 1.0;
 
-	mDownSampleFactor = 3.125; // 256x256
-	//mDownSampleFactor = 1.5625;
-	mDownSampleFactor = 4;
-	//mDownSampleFactor = 1; //tmp
-	mBlurScale = 1.0;
-	mBlurStrength = 1.0;
-	mBlurSize = 10.0;
+	mBloomEffect[1].downSampleFactor = 4;
+	mBloomEffect[1].blurScale = 1.0;
+	mBloomEffect[1].blurStrength = 1.0;
+	mBloomEffect[1].blurSize = 10.0;
+	mBloomEffect[1].brightThreshold = 7.0;
+	mBloomEffect[1].algorithmChoice = 0.0;
 
-	mInUseBlurShader = &mBlurShader1;
-	mBlurAlgorithmChoice = 1.0;
+	mBloomEffect[2].downSampleFactor = 4;
+	mBloomEffect[2].blurScale = 20.0;
+	mBloomEffect[2].blurStrength = 0.9;
+	mBloomEffect[2].blurSize = 10.0;
+	mBloomEffect[2].brightThreshold = 7.0;
+	mBloomEffect[2].algorithmChoice = 1.0;
+
+	mBloomEffect[0].downSampleFactor = 4;
+	mBloomEffect[0].blurScale = 1.0;
+	mBloomEffect[0].blurStrength = 0.0;
+	mBloomEffect[0].blurSize = 1.0;
+	mBloomEffect[0].brightThreshold = 7.0;
+	mBloomEffect[0].algorithmChoice = 0.0;
+
+	mBloomConfig = 1;
+	
+
+	mMenu.currentPage = -1;
+	mMenu.cursor = 0;
+	updateAndPrint(0, false, false);
 }
 
 
@@ -67,10 +85,10 @@ void HDRViewer::reshape(int _w, int _h) {
 	TrackballViewer::reshape(_w,_h);
 
 	mHdrBuffer.create(_w, _h, true);
-	mBloomBuffer.create(_w / mDownSampleFactor, _h/mDownSampleFactor, false);
+	mBloomBuffer.create(_w / bloom.downSampleFactor, _h/bloom.downSampleFactor, false);
 
 	mHdrTexture.create(_w, _h, GL_RGBA16F_ARB, GL_RGB, GL_FLOAT);
-	mBloomTexture.create(_w/mDownSampleFactor, _h/mDownSampleFactor, GL_RGBA16F_ARB, GL_RGB, GL_FLOAT);
+	mBloomTexture.create(_w/bloom.downSampleFactor, _h/bloom.downSampleFactor, GL_RGBA16F_ARB, GL_RGB, GL_FLOAT);
 	//mDownSampledTexture.create(_w/mDownSamplePasses, _h/mDownSamplePasses, GL_RGB16F_ARB, GL_RGB, GL_FLOAT);
 
 	mHdrBuffer.attachTexture(GL_COLOR_ATTACHMENT0_EXT, mHdrTexture.getID());
@@ -100,13 +118,17 @@ void HDRViewer::loadMesh(const std::string& filenameOBJ, const std::string& file
 
 void HDRViewer::buildSolarSystem() {
 
+	//mCubeMap.create("..\\..\\data\\stars\\cubeMap");
+
 	const char * planetName = "..\\..\\data\\planets\\mars.obj";
 	const char * planetName2 = "..\\..\\data\\planets\\jupiter.obj";
 	const char * sunName = "..\\..\\data\\sun\\sun.obj";
+	const char * starsName = "..\\..\\data\\stars\\stars.obj";
 
 	double sunScale = 200.0;
 	double planetScale = 50.0;
 	double planetTranslate = 2000.0;
+	double starsScale = 9000.0;
 
 	// SUN -------
 	Mesh3DReader::read(sunName, m_sun);
@@ -123,7 +145,7 @@ void HDRViewer::buildSolarSystem() {
 	m_sun.scaleObject(Vector3(sunScale, sunScale, sunScale));
 	
 	m_light.translateObject(Vector3(planetTranslate, 0.0, 0.0));
-	m_lightColor = Vector3(1.0, 1.0, 1.0);
+	m_lightColor = Vector3(10.0, 10.0, 10.0);
 
 	// PLANET -----
 	Mesh3DReader::read(planetName, m_planet);
@@ -160,34 +182,45 @@ void HDRViewer::buildSolarSystem() {
 	//set_scene_pos(center, planetTranslate * 3.3);
 
 	
+	Mesh3DReader::read(starsName, m_stars);
+	if(!m_stars.hasNormals()) {
+			m_stars.calculateVertexNormals();
+	}
+	m_stars.scaleObject(Vector3(starsScale, starsScale, starsScale));
 }
 
 
 
 //-----------------------------------------------------------------------------
 
-
 void HDRViewer::keyboard(int key, int x, int y) {
-	int modifiers = glutGetModifiers();
 
-	float delta = .1;
-	
-	int realKey = key;
-	bool shift = false;
-	bool ctrl = false;
+	bool mainPage = mMenu.currentPage == -1;
+	switch(key) {
+		case 13:	//Enter
+			if (mainPage) {
+				if (mMenu.cursor != 0 || mBloomConfig != 0) {
+					mMenu.currentPage = mMenu.cursor;
+					mMenu.cursor = 0;
+				}
+			}
+			break;
+		case 27:	//ESC
+			if (mainPage) {
+				exit(0);
+			} else {
+				mMenu.currentPage = -1;
+				mMenu.cursor = 0;
+			}
+			break;
 
-	if (modifiers == GLUT_ACTIVE_CTRL) {
-		realKey += 96;
-		ctrl = true;
-	} else if (modifiers == GLUT_ACTIVE_SHIFT) {
-		realKey += 32;
-		shift = true;
-	} else if (modifiers == GLUT_ACTIVE_SHIFT + GLUT_ACTIVE_CTRL) {
-		realKey += 96;
-		shift = true;
-		ctrl = true;
 	}
 
+	updateAndPrint(0, false, false);
+}
+
+void HDRViewer::blurEffectKey(int key) {
+	/*
 	switch (realKey) {
 		case 'h':
 			printf("Help:\n");
@@ -197,6 +230,7 @@ void HDRViewer::keyboard(int key, int x, int y) {
 			printf("'b'\t-\tChange blur strength\n");
 			printf("'k'\t-\tChange blur size\n");
 			printf("'a'\t-\tChange blur algorithm\n");
+			printf("'t'\t-\tChange bloom luminance threshold\n");
 			break;
 
 		case 'e':
@@ -252,6 +286,10 @@ void HDRViewer::keyboard(int key, int x, int y) {
 			printf("Using blur algorithm %f\n", mBlurAlgorithmChoice);
 			break;
 
+		case 't':
+			interpolateParameter(&mBloomThreshold, 0.0, 10.0, 1.0, ctrl, shift, false);
+			printf("Bloom threshold: %f\n", mBloomThreshold);
+			break;
 		case '2':
 			mInUseBlurShader = &mBlurShader2;
 			mBlurAlgorithmChoice = 2.0;
@@ -265,26 +303,144 @@ void HDRViewer::keyboard(int key, int x, int y) {
 			printf("Blur scale:\t%f\n", mBlurScale);
 			break;
 		default:
-			TrackballViewer::keyboard(key, x, y);
+			//TrackballViewer::keyboard(key, x, y);
 			break;
 	}
 	
+	glutPostRedisplay();//*/
+}
+
+void HDRViewer::special(int key, int x, int y) {
+	int modifiers = glutGetModifiers();
+	
+	bool shift = false;
+	bool ctrl = false;
+	
+	if (modifiers == GLUT_ACTIVE_CTRL) {
+		ctrl = true;
+	} else if (modifiers == GLUT_ACTIVE_SHIFT) {
+		shift = true;
+	} else if (modifiers == GLUT_ACTIVE_SHIFT + GLUT_ACTIVE_CTRL) {
+		shift = true;
+		ctrl = true;
+	}
+
+	int increment = 0;
+
+	switch(key) {
+		case GLUT_KEY_UP:
+			mMenu.cursor = (char) interpolateParameter(mMenu.cursor, 0, mMenu.parametersCount-1, -1, false, false, true);
+			break;
+
+		case GLUT_KEY_DOWN:
+			mMenu.cursor = (char) interpolateParameter(mMenu.cursor, 0, mMenu.parametersCount-1, 1, false, false, true);
+			break;
+
+		case GLUT_KEY_RIGHT:
+			increment = 1;
+			break;
+
+		case GLUT_KEY_LEFT:
+			increment = -1;
+			break;
+
+		default:
+			break;			
+	}
+
+	updateAndPrint(increment, ctrl, shift);
+}
+
+void HDRViewer::updateAndPrint(int increment, bool ctrl, bool shift) {
+	for (int i = 0; i < 5; i++) {
+		printf("\n\n\n\n\n");
+	}//*/
+
+	switch(mMenu.currentPage) {
+		case -1:
+			if (mMenu.cursor == 0) {
+				mBloomConfig = (char) interpolateParameter(mBloomConfig, 0.0, 2.0, increment*1.0, false, false, true);
+				printf(">");
+			}
+			if (mBloomConfig == 0) {
+				printf(" Bloom effect\t\t[DISABLED]\n");
+			} else {
+				printf(" Bloom effect\t\t[Setting %i]\n", mBloomConfig);
+			}
+			mMenu.parametersCount = 1;
+			break;
+
+		case 0:
+			printf("Bloom parameters:\n\n");		
+						
+			if (mMenu.cursor == 0) {
+				bloom.algorithmChoice = (char) interpolateParameter((float) bloom.algorithmChoice, 0.0, 1.0, increment*1.0, false, false, true);
+				printf(">");
+			}
+			switch(bloom.algorithmChoice) {
+			case 0:
+				printf("\tBlur algorithm     \t\tGaussian\n");
+				break;
+			case 1:
+				printf("\tBlur algorithm:    \t\tLinear\n");
+				break;
+			}
+
+			if (mMenu.cursor == 1) {				
+				bloom.blurSize = (int) interpolateParameter((float) bloom.blurSize, 1.0, 30.0, increment*1.0, false, shift, false);
+				printf(">");
+			}
+			printf("\tBlur kernel size: \t\t%i\n", bloom.blurSize);
+			
+
+			if (mMenu.cursor == 2) {
+				bloom.blurScale = interpolateParameter(bloom.blurScale, 1.0, 200.0, increment*1.0, ctrl, shift, false);
+				printf(">");
+			}
+			printf("\tBlur range scale:  \t\t%f\n", bloom.blurScale);
+
+			if (mMenu.cursor == 3) {
+				bloom.blurStrength = interpolateParameter(bloom.blurStrength, 0.0, 1.0, increment*0.1, ctrl, shift, false);
+				printf(">");
+			}
+			printf("\tBlur strength:     \t\t%f\n", bloom.blurStrength);
+
+			if (mMenu.cursor == 4) {
+				bloom.brightThreshold = interpolateParameter(bloom.brightThreshold, 0.0, 15.0, increment*1.0, ctrl, shift, false);
+				printf(">");
+			}
+			printf("\tBloom luminance threshold:\t%f\n", bloom.brightThreshold);
+
+			mMenu.parametersCount = 5;
+			break;
+	}
+
+	printf("\n\nleft/right arrows to modify parameter\n");
+	printf("ESC to go to parent/exit\n");
 	glutPostRedisplay();
 }
 
-void HDRViewer::interpolateParameter(float * parameter, float min, float max, float delta, bool isCtrlPressed, bool isShiftPressed, bool cyclic) {
-	if (isShiftPressed) {
+float HDRViewer::interpolateParameter(float parameter, float min, float max, float delta, bool isCtrlPressed, bool isShiftPressed, bool cyclic) {
+	if (delta == 0.0) {
+		return parameter;
+	}
+	
+	if (isShiftPressed && isCtrlPressed) {
+		return delta > 0 ? max : min;
+
+	} else if (isShiftPressed) {
+		delta *= 10.0;
+
+	} else if (isCtrlPressed) {
 		delta /= 10.0;
 	}
-	if (isCtrlPressed) {
-		delta = -delta;
+	parameter += delta;
+	if (parameter < min) {
+		parameter = cyclic ? max : min;
+	} else if (parameter > max) {
+		parameter = cyclic ? min : max;
 	}
-	*parameter += delta;
-	if (*parameter < min) {
-		*parameter = cyclic ? max : min;
-	} else if (*parameter > max) {
-		*parameter = cyclic ? min : max;
-	}
+	return parameter;
 }
 
 //-----------------------------------------------------------------------------
@@ -292,11 +448,12 @@ void HDRViewer::draw_scene(DrawMode _draw_mode) {
 
 	//*
 	mHdrBuffer.bind(GL_COLOR_ATTACHMENT0_EXT);
+		//renderCubeMap();
 		draw_elements();
 	mHdrBuffer.unbind();
 	//*/
 
-	//*
+	//*	
 	mBloomBuffer.bind(GL_COLOR_ATTACHMENT0_EXT);
 		extractBrightAreas();
 	mBloomBuffer.unbind();
@@ -312,6 +469,146 @@ void HDRViewer::draw_scene(DrawMode _draw_mode) {
 	//*
 	blend();
 	//*/
+}
+
+void HDRViewer::renderCubeMap() {
+	/*
+	glBegin(GL_QUADS);
+	float BOX_SIZE = height_;
+	//Top face
+	glColor3f(1.0f, 1.0f, 0.0f);
+	glNormal3f(0.0, 1.0f, 0.0f);
+	glVertex3f(-BOX_SIZE / 2, BOX_SIZE / 2, -BOX_SIZE / 2);
+	glVertex3f(-BOX_SIZE / 2, BOX_SIZE / 2, BOX_SIZE / 2);
+	glVertex3f(BOX_SIZE / 2, BOX_SIZE / 2, BOX_SIZE / 2);
+	glVertex3f(BOX_SIZE / 2, BOX_SIZE / 2, -BOX_SIZE / 2);
+ 
+	//Bottom face
+	glColor3f(1.0f, 0.0f, 1.0f);
+	glNormal3f(0.0, -1.0f, 0.0f);
+	glVertex3f(-BOX_SIZE / 2, -BOX_SIZE / 2, -BOX_SIZE / 2);
+	glVertex3f(BOX_SIZE / 2, -BOX_SIZE / 2, -BOX_SIZE / 2);
+	glVertex3f(BOX_SIZE / 2, -BOX_SIZE / 2, BOX_SIZE / 2);
+	glVertex3f(-BOX_SIZE / 2, -BOX_SIZE / 2, BOX_SIZE / 2);
+ 
+	//Left face
+	glNormal3f(-1.0, 0.0f, 0.0f);
+	glColor3f(0.0f, 1.0f, 1.0f);
+	glVertex3f(-BOX_SIZE / 2, -BOX_SIZE / 2, -BOX_SIZE / 2);
+	glVertex3f(-BOX_SIZE / 2, -BOX_SIZE / 2, BOX_SIZE / 2);
+	glColor3f(0.0f, 0.0f, 1.0f);
+	glVertex3f(-BOX_SIZE / 2, BOX_SIZE / 2, BOX_SIZE / 2);
+	glVertex3f(-BOX_SIZE / 2, BOX_SIZE / 2, -BOX_SIZE / 2);
+ 
+	glEnd();
+ 
+ 
+	glEnable(GL_TEXTURE_2D);
+	//glBindTexture(GL_TEXTURE_2D, textureId);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glColor3f(1.0f, 1.0f, 1.0f);
+	glBegin(GL_QUADS);
+ 
+	//Right face
+	glNormal3f(1.0, 0.0f, 0.0f);
+	glTexCoord2f(0.0f, 0.0f);
+	glVertex3f(BOX_SIZE / 2, -BOX_SIZE / 2, -BOX_SIZE / 2);
+	glTexCoord2f(1.0f, 0.0f);
+	glVertex3f(BOX_SIZE / 2, BOX_SIZE / 2, -BOX_SIZE / 2);
+	glTexCoord2f(1.0f, 1.0f);
+	glVertex3f(BOX_SIZE / 2, BOX_SIZE / 2, BOX_SIZE / 2);
+	glTexCoord2f(0.0f, 1.0f);
+	glVertex3f(BOX_SIZE / 2, -BOX_SIZE / 2, BOX_SIZE / 2);
+ 
+ 
+	glEnable(GL_TEXTURE_2D);
+	//glBindTexture(GL_TEXTURE_2D, textureId);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glColor3f(1.0f, 1.0f, 1.0f);
+	glBegin(GL_QUADS);
+ 
+ 
+	//Back face
+	glNormal3f(0.0, 0.0f, -1.0f);
+	glTexCoord2f(0.0f, 0.0f);
+	glVertex3f(-BOX_SIZE / 2, -BOX_SIZE / 2, -BOX_SIZE / 2);
+	glTexCoord2f(1.0f, 0.0f);
+	glVertex3f(-BOX_SIZE / 2, BOX_SIZE / 2, -BOX_SIZE / 2);
+	glTexCoord2f(1.0f, 1.0f);
+	glVertex3f(BOX_SIZE / 2, BOX_SIZE / 2, -BOX_SIZE / 2);
+	glTexCoord2f(0.0f, 1.0f);
+	glVertex3f(BOX_SIZE / 2, -BOX_SIZE / 2, -BOX_SIZE / 2);
+ 
+	glEnd();
+	glDisable(GL_TEXTURE_2D);//*/
+
+	// Activate environnment mapping
+	//*
+	glPushMatrix();
+		glLoadIdentity();
+		GLfloat s_plane[] = { 1.0, 0.0, 0.0, 0.0 };
+		GLfloat t_plane[] = { 0.0, 1.0, 0.0, 0.0 };
+		GLfloat r_plane[] = { 0.0, 0.0, 1.0, 0.0 };
+		glTexGenfv(GL_S, GL_OBJECT_PLANE, s_plane);
+		glTexGenfv(GL_T, GL_OBJECT_PLANE, t_plane);
+		glTexGenfv(GL_R, GL_OBJECT_PLANE, r_plane);
+    glPopMatrix();
+
+	//*
+	glTexGeni(GL_S, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
+	glTexGeni(GL_T, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR);
+	glTexGeni(GL_R, GL_TEXTURE_GEN_MODE, GL_OBJECT_LINEAR); //*/
+	
+	
+	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
+
+	glEnable(GL_TEXTURE_CUBE_MAP_EXT);
+	glEnable(GL_TEXTURE_GEN_S);
+	glEnable(GL_TEXTURE_GEN_T);
+	glEnable(GL_TEXTURE_GEN_R);
+	mCubeMap.bind();
+
+	// Draw a cube
+	float s = 500.0f;
+
+	glBegin(GL_QUADS); 
+		glVertex3f(+s, -s, -s);
+		glVertex3f(+s, -s, +s);
+		glVertex3f(+s, +s, +s);
+		glVertex3f(+s, +s, -s);
+
+		glVertex3f(-s, -s, -s);
+		glVertex3f(-s, +s, -s);
+		glVertex3f(-s, +s, +s);
+		glVertex3f(-s, -s, +s);
+
+		glVertex3f(-s, +s, -s);
+		glVertex3f(+s, +s, -s);
+		glVertex3f(+s, +s, +s);
+		glVertex3f(-s, +s, +s);
+
+		glVertex3f(-s, -s, -s);
+		glVertex3f(-s, -s, +s);
+		glVertex3f(+s, -s, +s);
+		glVertex3f(+s, -s, -s);
+
+		glVertex3f(-s, -s, -s);
+		glVertex3f(+s, -s, -s);
+		glVertex3f(+s, +s, -s);
+		glVertex3f(-s, +s, -s);
+
+		glVertex3f(-s, -s, +s);
+		glVertex3f(-s, +s, +s);
+		glVertex3f(+s, +s, +s);
+		glVertex3f(+s, -s, +s);
+	glEnd();
+
+	glDisable(GL_TEXTURE_GEN_S);
+	glDisable(GL_TEXTURE_GEN_T);
+	glDisable(GL_TEXTURE_GEN_R);
+	glDisable(GL_TEXTURE_CUBE_MAP_EXT);//*/
 }
 
 void HDRViewer::draw_elements() {
@@ -332,9 +629,8 @@ void HDRViewer::draw_elements() {
 	
 	mDiffuseShader.bind();
 	//mHdrTexture.setLayer(0);
-	mHdrTexture.bind();
-	
-	
+	//mHdrTexture.bind();
+			
 	mDiffuseShader.setMatrix4x4Uniform("worldcamera", cameraInverse);
 	
 	mDiffuseShader.setMatrix4x4Uniform("projection", m_camera.getProjectionMatrix());
@@ -345,9 +641,10 @@ void HDRViewer::draw_elements() {
 
 	// Draw mesh		
 	draw_object(mDiffuseShader, m_planet, true, true);
-	draw_object(mDiffuseShader, m_planet2, false, true);
+	draw_object(mDiffuseShader, m_planet2, false, true);	
+	
 	mDiffuseShader.unbind();
-
+		
 	mSimpleShader.bind();
 	
 	mSimpleShader.setMatrix4x4Uniform("worldcamera", cameraInverse);
@@ -356,10 +653,9 @@ void HDRViewer::draw_elements() {
 	//m_LightShader.setMatrix3x3Uniform("worldcameraNormal", m_camera.getTransformation().Transpose());
 	draw_object(mSimpleShader, m_sun, true, false);
 	
-	
+	draw_object(mSimpleShader, m_stars, true, false);
 
-	mSimpleShader.unbind();
-	mHdrTexture.unbind();
+	mSimpleShader.unbind();//*/	
 }
 
 
@@ -372,7 +668,7 @@ void HDRViewer::extractBrightAreas() {
 	mExtractBloomShader.bind();
 		
 	mExtractBloomShader.setIntUniform("texture", mHdrTexture.getLayer());
-	mExtractBloomShader.setFloatUniform("treshold", 7);
+	mExtractBloomShader.setFloatUniform("treshold", bloom.brightThreshold);
 	
 	
 	renderCustomScreenQuad();
@@ -386,30 +682,31 @@ void HDRViewer::renderBlur(float dx, float dy) {
 	
 	mBloomTexture.bind();
 	
+	Shader * sh = &mBlurShader[bloom.algorithmChoice];
+	sh->bind();
+	sh->setIntUniform("texture", mBloomTexture.getLayer());	
+	sh->setVector2Uniform("orientation", dx*bloom.blurScale/width_, 
+											dy*bloom.blurScale/height_);
+	sh->setIntUniform("blurAmount", bloom.blurSize);
 
-	mInUseBlurShader->bind();
-	mInUseBlurShader->setIntUniform("texture", mBloomTexture.getLayer());	
-	mInUseBlurShader->setVector2Uniform("orientation", dx*mBlurScale/width_, dy*mBlurScale/height_);
-	mInUseBlurShader->setIntUniform("blurAmount", (int)mBlurSize);
+	if (bloom.algorithmChoice == 0) {		
+		sh->setFloatUniform("blurStrength", bloom.blurStrength);
 
-	if (mBlurAlgorithmChoice == 1) {		
-		mInUseBlurShader->setFloatUniform("blurStrength", mBlurStrength);
-
-	} else if (mBlurAlgorithmChoice == 2) {
+	} else if (bloom.algorithmChoice == 1) {
 		//float samples[10] = {-0.08, -0.05, -0.03, -0.02, -0.01, 0.01, 0.02, 0.03, 0.05, 0.08};
-		float * samples = new float[(int) mBlurSize];
-		float blurStart = - mBlurStrength;
+		float * samples = new float[bloom.blurSize];
+		float blurStart = - bloom.blurStrength;
 		float blurWidth = -2.0 * blurStart;
-		for (int i = 0; i < mBlurSize; i++) {
-			samples[i] = blurStart + blurWidth*(float(i)/(mBlurSize-1.0));
+		for (int i = 0; i < bloom.blurSize; i++) {
+			samples[i] = blurStart + blurWidth*(float(i)/(bloom.blurSize-1.0));
 		}
 
-		mInUseBlurShader->setFloatArray("samples", samples, 10);		
+		sh->setFloatArray("samples", samples, 10);		
 	}
 	
 	renderCustomScreenQuad();
 	
-	mInUseBlurShader->unbind();
+	sh->unbind();
 }
 
 void HDRViewer::blend() {
@@ -513,7 +810,7 @@ void HDRViewer::renderCustomScreenQuad() {
 	// render full screen quad (note that vertex coordinates are already in opengl coordinates, so no transformation required!)
 	float vertexA = 1.0f;
 	float vertexB = -1.0f;
-	float texCoordA = mDownSampleFactor;
+	float texCoordA = bloom.downSampleFactor;
 	float texCoordB = 0.0f;
 	glBegin(GL_QUADS); 
 		glTexCoord2f(texCoordA, texCoordA);	glVertex2f(vertexA, vertexA);

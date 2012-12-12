@@ -103,6 +103,7 @@
     <ClCompile Include="..\..\src\gl\texture.cpp" />
     <ClCompile Include="..\..\src\gl\TrackballViewer.cpp" />
     <ClCompile Include="..\..\src\HDR\Scenes\HDRPlanets.cpp" />
+    <ClCompile Include="..\..\src\utils\Image.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\gl\Camera3D.h" />
@@ -124,6 +125,7 @@
     <ClInclude Include="..\..\src\math\Vector2.h" />
     <ClInclude Include="..\..\src\math\Vector3.h" />
     <ClInclude Include="..\..\src\math\Vector4.h" />
+    <ClInclude Include="..\..\src\utils\Image.h" />
     <ClInclude Include="..\..\src\utils\Mesh3DReader.h" />
     <ClInclude Include="..\..\src\utils\StopWatch.h" />
   </ItemGroup>

@@ -24,7 +24,7 @@
 #include "../gl/Light3D.h"
 #include "../gl/texture.h"
 #include "../gl/fbo.h"
-
+#include "../gl/cubeMapTexture.h"
 //== CLASS DEFINITION =========================================================
 
 #define DOWN_SAMPLE_PASSES 1
@@ -35,6 +35,19 @@
 class HDRViewer : public TrackballViewer {
 public:
    
+	typedef struct {
+		float downSampleFactor;
+
+		float blurScale;
+		float blurStrength;
+		int blurSize;
+
+		float brightThreshold;
+
+		char algorithmChoice;
+	} BLOOM_PARAMETERS;
+
+
   HDRViewer(const char* _title, int _width, int _height);
   
 	
@@ -42,19 +55,29 @@ public:
 
   void buildSolarSystem();
 	
+
 protected:
 
 	// overloaded GUI function
 	virtual void init();
 	virtual void keyboard(int key, int x, int y);
+	virtual void special(int key, int x, int y);
 	virtual void reshape(int w, int h); 
 	
 	virtual void draw_scene(DrawMode _draw_mode);
 
+	
+
 private:	
 	
-	void interpolateParameter(float * parameter, float min, float max, float delta, bool isCtrlPressed, bool isShiftPressed, bool cyclic);
+	void blurEffectKey(int key);
 
+	void updateAndPrint(int increment, bool isCtrlPressed, bool isShiftPressed);
+	//float update(int line, float parameter, float min, float max, float delta, bool cyclic);
+	
+	float interpolateParameter(float parameter, float min, float max, float delta, bool isCtrlPressed, bool isShiftPressed, bool cyclic);
+
+	void renderCubeMap();
 	void draw_elements();
 	void extractBrightAreas();
 	void renderBlur(float dx, float dy);
@@ -68,6 +91,8 @@ private:
 
 	//void renderHalfScreenQuad();
 	
+
+
 protected:
 	
 	// frame buffer object for render2texture
@@ -77,9 +102,13 @@ protected:
 	//FrameBufferObject mDownSampleBuffers[DOWN_SAMPLE_PASSES];
 	
 	// mesh object
+	CubeMapTexture mCubeMap;
+
 	Mesh3D m_sun;
 	Mesh3D m_planet;
 	Mesh3D m_planet2;
+
+	Mesh3D m_stars;
 
 	Light3D m_light;
 	Vector3 m_lightColor;
@@ -90,24 +119,26 @@ protected:
 	Shader mBlendShader;
 	Shader mSimpleShader;
 	
-	Shader mBlurShader;
-
-	Shader mBlurShader1;
-	Shader mBlurShader2;
+	Shader mBlurShader[2];
 
 	Shader mNullShader;
 	
+	typedef struct {
+		short currentPage;
+		short parametersCount;
+		char cursor;
+	} MENU_HELPER;
+		
 
 	float mExposure;
-	float mDownSampleFactor;
 
-	float mBlurScale;
-	float mBlurStrength;
-	float mBlurSize;
+	
 
-	float mBlurAlgorithmChoice;
-	Shader * mInUseBlurShader;
-
+	MENU_HELPER mMenu;
+	
+	BLOOM_PARAMETERS mBloomEffect[3];
+	char mBloomConfig;
+		
 	
 	// depth shader
 	//Shader m_depthShader;
