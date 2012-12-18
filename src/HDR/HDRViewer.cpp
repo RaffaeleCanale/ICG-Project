@@ -688,7 +688,7 @@ void HDRViewer::renderBlur(float dx, float dy) {
 			samples[i] = blurStart + blurWidth*(float(i)/(bloom.blurSize-1.0));
 		}
 
-		sh->setFloatArray("samples", samples, 10);		
+		sh->setFloatArray("samples", samples, bloom.blurSize);		
 	}
 	
 	renderCustomScreenQuad(bloom.downSampleFactor);

@@ -24,8 +24,8 @@ void pixelFunction(float * r, float * g, float * b) {
 	}
 }
 
-OtherScene scene;
-//Satellite scene(true);
+//OtherScene scene;
+Satellite scene(false);
 
 /**
  *	Starting method

@@ -31,7 +31,7 @@
 #include "Scenes/Satellite.h"
 #include "../utils/StopWatch.h"
 
-#define SCENE_TYPE OtherScene
+#define SCENE_TYPE Satellite
 
 //== CLASS DEFINITION =========================================================
 
