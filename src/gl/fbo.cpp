@@ -31,15 +31,21 @@ FrameBufferObject::~FrameBufferObject()
 
 void FrameBufferObject::create(unsigned int _width,
 							   unsigned int _height,
-							   bool _withRenderBuffer) {
+							   bool _withRenderBuffer,
+							   bool _withColor) {
 	mWidth = _width;
 	mHeight = _height;
 								   
 	clear();
 	glGenFramebuffersEXT(1, &frameBufferId_);
 	assert(frameBufferId_ != 0);
+	if (!_withColor) {
+		glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, renderBufferId_);
+		glDrawBuffer(GL_NONE);
+		glReadBuffer(GL_NONE);
+		glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 
-	if(_withRenderBuffer) {
+	} else if(_withRenderBuffer) {
 
 		glGenRenderbuffersEXT(1, &renderBufferId_);
 		assert(renderBufferId_ != 0);

@@ -28,6 +28,12 @@
     <Filter Include="Source Files\utils">
       <UniqueIdentifier>{fdb99abc-e33f-47df-8901-8c1d33e1ae35}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Scenes">
+      <UniqueIdentifier>{3d7fce84-e525-4828-b4e7-cd80bf1b5a4b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Scenes">
+      <UniqueIdentifier>{f3e53870-c344-4d42-98f4-f30b57486ef1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\HDR\main.cpp">
@@ -54,17 +60,23 @@
     <ClCompile Include="..\..\src\HDR\HDRViewer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\HDR\Scenes\HDRPlanets.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\src\HDR\DownSampler.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\src\gl\cubeMapTexture.cpp">
       <Filter>Source Files\gl</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\utils\Image.cpp">
       <Filter>Source Files\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\HDR\Scenes\Scene.cpp">
+      <Filter>Source Files\Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\HDR\Scenes\Planets.cpp">
+      <Filter>Source Files\Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\HDR\Scenes\OtherScene.cpp">
+      <Filter>Source Files\Scenes</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\HDR\Scenes\Satellite.cpp">
+      <Filter>Source Files\Scenes</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -119,12 +131,6 @@
     <ClInclude Include="..\..\src\HDR\HDRViewer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\src\HDR\Scenes\HDRPlanets.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\src\HDR\DownSampler.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\math\Pairing.h">
       <Filter>Header Files\math</Filter>
     </ClInclude>
@@ -133,6 +139,18 @@
     </ClInclude>
     <ClInclude Include="..\..\src\utils\Image.h">
       <Filter>Header Files\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\HDR\Scenes\Scene.h">
+      <Filter>Header Files\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\HDR\Scenes\Planets.h">
+      <Filter>Header Files\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\HDR\Scenes\OtherScene.h">
+      <Filter>Header Files\Scenes</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\HDR\Scenes\Satellite.h">
+      <Filter>Header Files\Scenes</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

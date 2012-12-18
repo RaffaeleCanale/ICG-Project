@@ -11,6 +11,7 @@
 //=============================================================================
 #ifndef __TEXTURE_H__
 #define __TEXTURE_H__
+
 #include <string>
 #include "gl.h"
 class Texture 
@@ -29,7 +30,8 @@ public:
 				unsigned int _format,
 				unsigned int _type,
 				void * _data = NULL,
-				int _param = GL_LINEAR);
+				int _param = GL_LINEAR,
+				int _param2 = GL_CLAMP_TO_EDGE);
 	// Read RGB TGA file
 	void create(const std::string& _fileName);
 	void createWithDelta(const std::string& _fileName, float delta);

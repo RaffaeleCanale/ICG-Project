@@ -1,29 +1,14 @@
-//=============================================================================
-//                                                                            
-//   Exercise code for the lecture
-//                                                                            
-//=============================================================================
-//=============================================================================
-//
-//  CLASS HDRViewer - IMPLEMENTATION
-//
-//=============================================================================
-
-//== INCLUDES =================================================================
 
 #include "HDRViewer.h"
-#include "../utils/Mesh3DReader.h"
-
-//== IMPLEMENTATION ========================================================== 
 
 #define bloom mBloomEffect[mBloomConfig]
+#define tone mTone[mToneConfig]
+#define scatter mScatterEffect[mScatterConfig]
 
-HDRViewer::HDRViewer(const char* _title, int _width, int _height): TrackballViewer(_title, _width, _height){
+
+HDRViewer::HDRViewer(const char* _title, int _width, int _height): TrackballViewer(_title, _width, _height) {
   init();
 }
-
-
-//-----------------------------------------------------------------------------
 
 
 void HDRViewer::init(){
@@ -33,20 +18,29 @@ void HDRViewer::init(){
 	// set camera to look at world coordinate center
 	set_scene_pos(Vector3(0.0, 0.0, 0.0), 2.0);
 
-	// load shaders
-	mDiffuseShader.create("Shaders/diffuse.vs", "Shaders/diffuse.fs");
-	mSimpleShader.create("Shaders/texture.vs", "Shaders/texture.fs");
+	/********************
+	 *** LOAD SHADERS ***
+	 ********************/
 	mExtractBloomShader.create("Shaders/bloom.vs", "Shaders/bloom.fs");
 	mBlendShader.create("Shaders/ToneMappingAndBlend.vs", "Shaders/ToneMappingAndBlend.fs");
-	//mBlurShader.create("Shaders/blur.vs", "Shaders/blur.fs");
-	mNullShader.create("Shaders/null.vs", "Shaders/null.fs");
+	mUniColorShader.create("Shaders/UniColor.vs", "Shaders/UniColor.fs");
+	mScatterBlurShader.create("Shaders/scatterBlur.vs", "Shaders/scatterBlur.fs");
 
 	mBlurShader[0].create("Shaders/blur1.vs", "Shaders/blur1.fs");
 	mBlurShader[1].create("Shaders/blur2.vs", "Shaders/blur2.fs");
+		
+	/******************************
+	 *** SET DEFAULT PARAMETERS ***
+	 ******************************/
+	// TONE MAPPING
+	mTone[0].exposure = 1.0;	
+	mTone[0].brightThreshold = 1.2f;
+	mTone[0].textureRatio = 1.0;
+	mTone[0].bloomRatio = 0.6;
+	mTone[0].scatterRatio = 0.6;
+	mToneConfig = 0;
 
-
-	mExposure = 1.0;
-
+	// BLOOM
 	mBloomEffect[1].downSampleFactor = 4;
 	mBloomEffect[1].blurScale = 1.0;
 	mBloomEffect[1].blurStrength = 1.0;
@@ -59,382 +53,311 @@ void HDRViewer::init(){
 	mBloomEffect[2].blurStrength = 0.9;
 	mBloomEffect[2].blurSize = 10.0;
 	mBloomEffect[2].brightThreshold = 7.0;
-	mBloomEffect[2].algorithmChoice = 1.0;
+	mBloomEffect[2].algorithmChoice = 1.0;	
 
-	mBloomEffect[0].downSampleFactor = 4;
-	mBloomEffect[0].blurScale = 1.0;
-	mBloomEffect[0].blurStrength = 0.0;
-	mBloomEffect[0].blurSize = 1.0;
-	mBloomEffect[0].brightThreshold = 7.0;
-	mBloomEffect[0].algorithmChoice = 0.0;
-
-	mBloomConfig = 1;
+	mBloomConfig = 0;
 	
+	// LIGHT SCATTERING
+	mScatterEffect[1].downSampleFactor = 4.0;
+	mScatterEffect[1].decay = 0.89;
+	mScatterEffect[1].density = 0.93;
+	mScatterEffect[1].weight = 1.0;
+	mScatterEffect[1].samples = 40;
+	
+	mScatterConfig = 0;
 
+	// MENU
 	mMenu.currentPage = -1;
 	mMenu.cursor = 0;
-	updateAndPrint(0, false, false);
+
+	// ANIMATION
+	mCurrentTime = -1.0;
+	mAnimate = false;
+
+	updateAndPrint(0);
 }
-
-
-
-//-----------------------------------------------------------------------------
 
 
 void HDRViewer::reshape(int _w, int _h) {
 	TrackballViewer::reshape(_w,_h);
 
 	mHdrBuffer.create(_w, _h, true);
-	mBloomBuffer.create(_w / bloom.downSampleFactor, _h/bloom.downSampleFactor, false);
+	mBloomBuffer.create(_w/bloom.downSampleFactor, _h/bloom.downSampleFactor, false);
+	mScatterBuffer.create(_w/scatter.downSampleFactor, _h/scatter.downSampleFactor, false);
 
 	mHdrTexture.create(_w, _h, GL_RGBA16F_ARB, GL_RGB, GL_FLOAT);
 	mBloomTexture.create(_w/bloom.downSampleFactor, _h/bloom.downSampleFactor, GL_RGBA16F_ARB, GL_RGB, GL_FLOAT);
-	//mDownSampledTexture.create(_w/mDownSamplePasses, _h/mDownSamplePasses, GL_RGB16F_ARB, GL_RGB, GL_FLOAT);
+	mScatterTexture.create(_w, _h, GL_RGBA16F_ARB, GL_RGB, GL_FLOAT);
+	mScatterDownsampledTexture.create(_w/scatter.downSampleFactor, _h/scatter.downSampleFactor, GL_RGBA16F_ARB, GL_RGB, GL_FLOAT);
+	
 
 	mHdrBuffer.attachTexture(GL_COLOR_ATTACHMENT0_EXT, mHdrTexture.getID());
+	mHdrBuffer.attachTexture(GL_COLOR_ATTACHMENT1_EXT, mScatterTexture.getID());
 	mBloomBuffer.attachTexture(GL_COLOR_ATTACHMENT0_EXT, mBloomTexture.getID());
-	//mDownSampleBuffer.attachTexture(GL_COLOR_ATTACHMENT0_EXT, mDownSampledTexture.getID());
+	mScatterBuffer.attachTexture(GL_COLOR_ATTACHMENT0_EXT, mScatterDownsampledTexture.getID());
 }
 
 
-//-----------------------------------------------------------------------------
-// Unused
-void HDRViewer::loadMesh(const std::string& filenameOBJ, const std::string& filenameMTL) {
-	// load mesh from obj into m_mesh
-	Mesh3DReader::read( filenameOBJ, m_planet, filenameMTL);
+void HDRViewer::loadScene(SCENE_TYPE scene) {
+	mScene = scene;
 
-	// calculate normals
-	m_planet.calculateVertexNormals();
-	
-	// get bounding box & reset scene camera accordingly
-	Vector3 bbmin, bbmax;
-	m_planet.calculateBoundingBox(bbmin, bbmax);
-	
-	double radius = 0.5*(bbmin - bbmax).length();
-	Vector3 center = 0.5*(bbmin + bbmax);
-	
-	set_scene_pos(center, radius);
-}
+	mScene.loadShaders();
 
-void HDRViewer::buildSolarSystem() {
+	Vector3 pos = Vector3(0.0, 0.0, 0.0);
+	float radius = 0;
+	mScene.buildScene(&pos, &radius);
+	set_scene_pos(pos, radius);	
 
-	//mCubeMap.create("..\\..\\data\\stars\\cubeMap");
-
-	const char * planetName = "..\\..\\data\\planets\\mars.obj";
-	const char * planetName2 = "..\\..\\data\\planets\\jupiter.obj";
-	const char * sunName = "..\\..\\data\\sun\\sun.obj";
-	const char * starsName = "..\\..\\data\\stars\\stars.obj";
-
-	double sunScale = 200.0;
-	double planetScale = 50.0;
-	double planetTranslate = 2000.0;
-	double starsScale = 9000.0;
-
-	// SUN -------
-	Mesh3DReader::read(sunName, m_sun);
-
-	if(m_sun.hasNormals()) {
-		m_sun.calculateVertexNormals();
-	}
-
-	//m_sun.setIdentity();
-	m_sun.translateObject(Vector3(planetTranslate, 0.0, 0.0));
-	
-	//m_light.translateObject(m_light.origin() - m_sun.origin());
-
-	m_sun.scaleObject(Vector3(sunScale, sunScale, sunScale));
-	
-	m_light.translateObject(Vector3(planetTranslate, 0.0, 0.0));
-	m_lightColor = Vector3(10.0, 10.0, 10.0);
-
-	// PLANET -----
-	Mesh3DReader::read(planetName, m_planet);
-
-	if (m_planet.hasNormals()) {
-		m_planet.calculateVertexNormals();
-	}
-		
-	m_planet.scaleObject(Vector3(planetScale, planetScale, planetScale));
-
-
-	// PLANET2 -----
-	Mesh3DReader::read(planetName2, m_planet2);
-
-	if (m_planet2.hasNormals()) {
-		m_planet2.calculateVertexNormals();
-	}
-		
-	double planetScale2 = planetScale * 1.5;
-	double planetTranslate2 = planetTranslate * .5;
-	m_planet2.translateObject(Vector3(planetTranslate2, 0.0, planetTranslate2));
-	m_planet2.scaleObject(Vector3(planetScale2, planetScale2, planetScale2));
-	
-
-	Vector3 bbmin, bbmax;
-	m_sun.calculateBoundingBox(bbmin, bbmax);
-	
-	double radius = 0.5*(bbmin - bbmax).length();
-	Vector3 center = 0.5*(bbmin + bbmax);
-	
-	radius = planetTranslate * 1.0;
-	set_scene_pos(center, radius);
-	//set_scene_pos(Vector3(0.0, 0.0, -1000.0), planetTranslate * 3.3);
-	//set_scene_pos(center, planetTranslate * 3.3);
-
-	
-	Mesh3DReader::read(starsName, m_stars);
-	if(!m_stars.hasNormals()) {
-			m_stars.calculateVertexNormals();
-	}
-	m_stars.scaleObject(Vector3(starsScale, starsScale, starsScale));
+	mScene.initCamera(&m_camera);
 }
 
 
+void HDRViewer::idle() {
+	if (mAnimate) {
+		float prevTime = mCurrentTime;
+		mCurrentTime = mWatch.stop();
+		mScene.animate(mCurrentTime - prevTime);
 
-//-----------------------------------------------------------------------------
+		glutPostRedisplay();		
+	}
+}
+
 
 void HDRViewer::keyboard(int key, int x, int y) {
-
 	bool mainPage = mMenu.currentPage == -1;
+
 	switch(key) {
 		case 13:	//Enter
 			if (mainPage) {
-				if (mMenu.cursor != 0 || mBloomConfig != 0) {
-					mMenu.currentPage = mMenu.cursor;
-					mMenu.cursor = 0;
-				}
+				mMenu.currentPage = mMenu.cursor;
+				mMenu.cursor = 0;				
 			}
 			break;
+
+		case 8:		//RETURN
 		case 27:	//ESC
 			if (mainPage) {
 				exit(0);
 			} else {
-				mMenu.currentPage = -1;
-				mMenu.cursor = 0;
+				mMenu.cursor = mMenu.currentPage;
+				mMenu.currentPage = -1; //Return to main page				
 			}
 			break;
 
-	}
-
-	updateAndPrint(0, false, false);
-}
-
-void HDRViewer::blurEffectKey(int key) {
-	/*
-	switch (realKey) {
-		case 'h':
-			printf("Help:\n");
-			printf("'h'\t-\tHelp\n");
-			printf("'e'\t-\tChange exposure\n");
-			printf("'s'\t-\tChange blur scale\n");
-			printf("'b'\t-\tChange blur strength\n");
-			printf("'k'\t-\tChange blur size\n");
-			printf("'a'\t-\tChange blur algorithm\n");
-			printf("'t'\t-\tChange bloom luminance threshold\n");
-			break;
-
-		case 'e':
-			interpolateParameter(&mExposure, 0.0, 2.0, 0.1, ctrl, shift, false);
-			printf("Exposure; %f\n", mExposure);
-			break;
-
-		case 'd':
-			delta = ctrl ? mDownSampleFactor/2.0 : mDownSampleFactor;
-			//interpolateParameter(&mDownSampleFactor, 1.0, 12.5, delta, ctrl, shift);
-
-			//mBloomTexture.create(width_/mDownSampleFactor, height_/mDownSampleFactor, GL_RGBA16F_ARB, GL_RGB, GL_FLOAT);
-			//printf("Down sample factor: %f\n\t%fx%f\n", mDownSampleFactor, height_/mDownSampleFactor, width_/mDownSampleFactor);
-			printf("Not implemented yet");
-			break;
-
-		case 's':
-			interpolateParameter(&mBlurScale, 1.0, 200.0, mBlurAlgorithmChoice == 1 ? 1.0 : 10.0, ctrl, shift, false);
-			printf("Blur scale: %f\n", mBlurScale);
-			break;
-
-		case 'b':
-			interpolateParameter(&mBlurStrength, 0.0, 1.0, 0.1, ctrl, shift, false);
-			printf("Blur strength: %f\n", mBlurStrength);
-			break;
-
-		case 'k':
-			interpolateParameter(&mBlurSize, 1.0, 30.0, 1.0, ctrl, false, true);			
-			
-			if (mBlurAlgorithmChoice == 1.0 && mBlurSize >= 20.0) {
-				printf("Blur kernel size: %f (!)\n", mBlurSize);
+		case 32:	//SPACE
+			if(mAnimate) {
+				mWatch.stop();
+				mCurrentTime = 0.0;
 			} else {
-				printf("Blur kernel size: %f\n", mBlurSize);
+				mWatch.start();
+				if (mCurrentTime < 0.0) {
+					// init mCurrentTime for the first time
+					mCurrentTime = mWatch.stop();
+				}
 			}
-			if (!ctrl && mBlurSize == 20.0 && mBlurAlgorithmChoice == 1.0) {
-				printf("WARNING: Blur kernel size too high, performance may drop!\n");
-			}
-			
+
+			mAnimate = !mAnimate;
 			break;
 
-		case 'a':
-			interpolateParameter(&mBlurAlgorithmChoice, 1.0, 2.0, 1.0, ctrl, false, true);
-			switch ((int) mBlurAlgorithmChoice) {
-				case 1:
-					mInUseBlurShader = &mBlurShader1;
-					break;
-				case 2:
-					mInUseBlurShader = &mBlurShader2;
-					break;
-				default:
-					break;
-			}
-			printf("Using blur algorithm %f\n", mBlurAlgorithmChoice);
-			break;
-
-		case 't':
-			interpolateParameter(&mBloomThreshold, 0.0, 10.0, 1.0, ctrl, shift, false);
-			printf("Bloom threshold: %f\n", mBloomThreshold);
-			break;
-		case '2':
-			mInUseBlurShader = &mBlurShader2;
-			mBlurAlgorithmChoice = 2.0;
-			mBlurScale = 20.0;
-			mBlurStrength = 0.9;
-			mBlurSize = 10.0;
-
-			printf("Using blur algorithm 2 with:\n");
-			printf("Blur kernel size:\t%f\n", mBlurSize);
-			printf("Blur strength:\t%f\n", mBlurStrength);
-			printf("Blur scale:\t%f\n", mBlurScale);
-			break;
 		default:
-			//TrackballViewer::keyboard(key, x, y);
+			TrackballViewer::keyboard(key, x, y);
 			break;
 	}
-	
-	glutPostRedisplay();//*/
+
+	updateAndPrint(0);
 }
 
 void HDRViewer::special(int key, int x, int y) {
 	int modifiers = glutGetModifiers();
 	
-	bool shift = false;
-	bool ctrl = false;
-	
-	if (modifiers == GLUT_ACTIVE_CTRL) {
-		ctrl = true;
-	} else if (modifiers == GLUT_ACTIVE_SHIFT) {
-		shift = true;
-	} else if (modifiers == GLUT_ACTIVE_SHIFT + GLUT_ACTIVE_CTRL) {
-		shift = true;
-		ctrl = true;
-	}
+	float increment = 0.0;
+	float delta = 1.0;
 
-	int increment = 0;
+	if (modifiers == GLUT_ACTIVE_CTRL) {
+		delta = 0.1;
+	} else if (modifiers == GLUT_ACTIVE_SHIFT) {
+		delta = 10.0;
+	} else if (modifiers == GLUT_ACTIVE_SHIFT + GLUT_ACTIVE_CTRL) {
+		delta = 100.0;
+	}
 
 	switch(key) {
 		case GLUT_KEY_UP:
-			mMenu.cursor = (char) interpolateParameter(mMenu.cursor, 0, mMenu.parametersCount-1, -1, false, false, true);
+			mMenu.cursor = incrementParameter(mMenu.cursor, 0, mMenu.parametersCount-1, -1, true);
 			break;
 
 		case GLUT_KEY_DOWN:
-			mMenu.cursor = (char) interpolateParameter(mMenu.cursor, 0, mMenu.parametersCount-1, 1, false, false, true);
+			mMenu.cursor = incrementParameter(mMenu.cursor, 0, mMenu.parametersCount-1, 1, true);
 			break;
 
 		case GLUT_KEY_RIGHT:
-			increment = 1;
+			increment = delta;
 			break;
 
 		case GLUT_KEY_LEFT:
-			increment = -1;
+			increment = -delta;
 			break;
 
 		default:
 			break;			
 	}
 
-	updateAndPrint(increment, ctrl, shift);
+	updateAndPrint(increment);
 }
 
-void HDRViewer::updateAndPrint(int increment, bool ctrl, bool shift) {
+void HDRViewer::updateAndPrint(float increment) {
 	for (int i = 0; i < 5; i++) {
-		printf("\n\n\n\n\n");
-	}//*/
+		printf("\n\n\n\n\n");  //clear screen
+	}
+
+	mMenu.parametersCount = 0;
+	bool needReshape = false; // Some parameters change will need that we call the reshape method in order to see changes
 
 	switch(mMenu.currentPage) {
-		case -1:
-			if (mMenu.cursor == 0) {
-				mBloomConfig = (char) interpolateParameter(mBloomConfig, 0.0, 2.0, increment*1.0, false, false, true);
-				printf(">");
-			}
+		case -1:  // Main page		
+			mToneConfig = update(mToneConfig, 0.0, tone_param_count - 1.0, increment*1.0, true);
+			printf(" Tone mapping\t\t[Setting %i]\n", mToneConfig);
+
+
+			mBloomConfig = update(mBloomConfig, 0.0, bloom_param_count - 1.0, increment*1.0, true, &needReshape);
 			if (mBloomConfig == 0) {
 				printf(" Bloom effect\t\t[DISABLED]\n");
 			} else {
 				printf(" Bloom effect\t\t[Setting %i]\n", mBloomConfig);
 			}
-			mMenu.parametersCount = 1;
+
+
+			mScatterConfig = update(mScatterConfig, 0.0, scatter_param_count - 1.0, increment*1.0, true, &needReshape);
+			if (mScatterConfig == 0) {
+				printf(" Light scattering\t[DISABLED]\n");
+			} else {
+				printf(" Light scattering\t[Setting %i]\n", mScatterConfig);
+			}
 			break;
 
-		case 0:
-			printf("Bloom parameters:\n\n");		
-						
-			if (mMenu.cursor == 0) {
-				bloom.algorithmChoice = (char) interpolateParameter((float) bloom.algorithmChoice, 0.0, 1.0, increment*1.0, false, false, true);
-				printf(">");
-			}
-			switch(bloom.algorithmChoice) {
-			case 0:
-				printf("\tBlur algorithm     \t\tGaussian\n");
-				break;
-			case 1:
-				printf("\tBlur algorithm:    \t\tLinear\n");
-				break;
+		case 0:	// Tone mapping
+			{
+			printf("Tone mapping parameters:\n\n");
+
+			tone.exposure = update(tone.exposure, 0.0, 2.0, increment*0.1, false);
+			printf("\tExposure:       \t\t\t%f\n", tone.exposure);
+
+			tone.brightThreshold = update(tone.brightThreshold, 0.0, 2.0, increment*0.1, false);
+			printf("\tBright threshold: \t\t\t%f\n", tone.brightThreshold);
+
+			tone.textureRatio = update(tone.textureRatio, 0.0, 10.0, increment*0.1, false);
+			printf("\tTexture ratio in blending:\t\t%f\n", tone.textureRatio);
+
+			tone.bloomRatio = update(tone.bloomRatio, 0.0, 10.0, increment*0.1, false);
+			printf("\tBloom ratio in blending:\t\t%f\n", tone.bloomRatio);
+
+			tone.scatterRatio = update(tone.scatterRatio, 0.0, 10.0, increment*0.1, false);
+			printf("\tLight scattering ratio in blending:\t%f\n", tone.scatterRatio);
+
+			Vector3 light = mScene.getLightIntensity();
+			float min = min(light.x, min(light.y, light.z));
+			float max = max(light.x, max(light.y, light.z));
+			float delta = update(0.0, -min, 15.0 - max, 0.1*increment, false);
+			mScene.setLightIntensity(light + Vector3(delta, delta, delta));
+			light = mScene.getLightIntensity();
+			printf("\tLight intensity: \t\t(%f, %f, %f)\n", light.x, light.y, light.z);
+			break;
 			}
 
-			if (mMenu.cursor == 1) {				
-				bloom.blurSize = (int) interpolateParameter((float) bloom.blurSize, 1.0, 30.0, increment*1.0, false, shift, false);
-				printf(">");
+		case 1:	// Bloom
+			
+			printf("Bloom parameters:\n\n");		
+						
+			bloom.algorithmChoice = update(bloom.algorithmChoice, 0.0, 1.0, increment*1.0, true);
+			switch(bloom.algorithmChoice) {
+				case 0:
+					printf("\tBlur algorithm:    \t\tGaussian\n");
+					break;
+				case 1:
+					printf("\tBlur algorithm:    \t\tLinear\n");
+					break;
 			}
+
+
+			bloom.blurSize = update(bloom.blurSize, 1.0, 30.0, increment*1.0, false);
 			printf("\tBlur kernel size: \t\t%i\n", bloom.blurSize);
 			
 
-			if (mMenu.cursor == 2) {
-				bloom.blurScale = interpolateParameter(bloom.blurScale, 1.0, 200.0, increment*1.0, ctrl, shift, false);
-				printf(">");
-			}
+			bloom.blurScale = update(bloom.blurScale, 1.0, 200.0, increment*1.0, false);
 			printf("\tBlur range scale:  \t\t%f\n", bloom.blurScale);
 
-			if (mMenu.cursor == 3) {
-				bloom.blurStrength = interpolateParameter(bloom.blurStrength, 0.0, 1.0, increment*0.1, ctrl, shift, false);
-				printf(">");
-			}
+			
+			bloom.blurStrength = update(bloom.blurStrength, 0.0, 1.0, increment*0.1, false);
 			printf("\tBlur strength:     \t\t%f\n", bloom.blurStrength);
 
-			if (mMenu.cursor == 4) {
-				bloom.brightThreshold = interpolateParameter(bloom.brightThreshold, 0.0, 15.0, increment*1.0, ctrl, shift, false);
-				printf(">");
-			}
+			
+			bloom.brightThreshold = update(bloom.brightThreshold, 0.0, 15.0, increment*1.0, false);			
 			printf("\tBloom luminance threshold:\t%f\n", bloom.brightThreshold);
 
-			mMenu.parametersCount = 5;
+			bloom.downSampleFactor = update(bloom.downSampleFactor, 1.0, 16.0, increment*1.0, false, &needReshape);
+			printf("\tBlur downsample factor:\t\t%f\n", bloom.downSampleFactor);			
+			break;
+			
+
+		case 2:	// Light scattering
+			printf("Light scattering parameters:\n\n");
+
+			scatter.decay = update(scatter.decay, 0.0, 10.0, increment*0.1, false);
+			printf("\tLight decay:    \t\t%f\n", scatter.decay);
+
+			scatter.density = update(scatter.density, 0.0, 10.0, increment*0.1, false);
+			printf("\tLight density:  \t\t%f\n", scatter.density);
+
+			scatter.weight = update(scatter.weight, 0.0, 10.0, increment*0.1, false);
+			printf("\tLight weight:    \t\t%f\n", scatter.weight);
+
+			scatter.samples = update(scatter.samples, 0.0, 100.0, increment*1.0, false);
+			printf("\tSamples:       \t\t%i\n", scatter.samples);
+
 			break;
 	}
 
-	printf("\n\nleft/right arrows to modify parameter\n");
-	printf("ESC to go to parent/exit\n");
+	if (mMenu.currentPage == -1) {
+		printf("\n\nLEFT/RIGHT arrows to modify preset\n");
+		printf("ESC to go to exit\n");
+	} else {
+		printf("\n\nLEFT/RIGHT arrows to modify parameter\n");
+		printf("CTRL/SHIFT to regulate the change delta\n");
+		printf("ESC to return to parent\n");
+	}
+	if (mAnimate) {
+		printf("SPACEBAR to stop animation\n");
+	} else {
+		printf("SPACEBAR to start animation\n");
+	}
+		
+
+	if (needReshape) {
+		reshape(width_, height_);
+	}
 	glutPostRedisplay();
 }
 
-float HDRViewer::interpolateParameter(float parameter, float min, float max, float delta, bool isCtrlPressed, bool isShiftPressed, bool cyclic) {
-	if (delta == 0.0) {
-		return parameter;
-	}
+float HDRViewer::update(float parameter, float min, float max, float delta, bool cyclic, bool * needReshape) {
+	float result;
 	
-	if (isShiftPressed && isCtrlPressed) {
-		return delta > 0 ? max : min;
-
-	} else if (isShiftPressed) {
-		delta *= 10.0;
-
-	} else if (isCtrlPressed) {
-		delta /= 10.0;
+	if (mMenu.cursor == mMenu.parametersCount) {	// This is the parameter the user selected
+		printf(">");
+		result = incrementParameter(parameter, min, max, delta, cyclic);
+		if (needReshape != NULL) {	//If a pointer has been passed, then it means that this parameter needs a reshape
+			*needReshape = true;
+		}
+	} else {
+		result = parameter;
 	}
+
+	mMenu.parametersCount++;	// Automatically counts the number of parameters to help display
+	return result;
+}
+
+float HDRViewer::incrementParameter(float parameter, float min, float max, float delta, bool cyclic) {
 	parameter += delta;
+
 	if (parameter < min) {
 		parameter = cyclic ? max : min;
 	} else if (parameter > max) {
@@ -445,31 +368,146 @@ float HDRViewer::interpolateParameter(float parameter, float min, float max, flo
 
 //-----------------------------------------------------------------------------
 void HDRViewer::draw_scene(DrawMode _draw_mode) {
-
-	//*
 	mHdrBuffer.bind(GL_COLOR_ATTACHMENT0_EXT);
 		//renderCubeMap();
-		draw_elements();
-	mHdrBuffer.unbind();
-	//*/
-
-	//*	
-	mBloomBuffer.bind(GL_COLOR_ATTACHMENT0_EXT);
-		extractBrightAreas();
-	mBloomBuffer.unbind();
-	//*/
+		mScene.renderScene(&m_camera);
+	mHdrBuffer.unbind();	
 	
-	//*
 	mBloomBuffer.bind(GL_COLOR_ATTACHMENT0_EXT);
-		renderBlur(1.0, 0.0);
-		renderBlur(0.0, 1.0);
+		if (mBloomConfig != 0) {
+			extractBrightAreas();	
+			renderBlur(1.0, 0.0);
+			renderBlur(0.0, 1.0);	
+		} else {		
+			glClearColor(0, 0, 0, 0);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		}
 	mBloomBuffer.unbind();
-	//*/
+	
+
+	mHdrBuffer.bind(GL_COLOR_ATTACHMENT1_EXT);	
+		if (mScatterConfig != 0) {	
+			mScene.renderLight(&m_camera, &mUniColorShader);
+		} else {
+			glClearColor(0, 0, 0, 0);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		}
+	mHdrBuffer.unbind();
+	
+	mScatterBuffer.bind(GL_COLOR_ATTACHMENT0_EXT);
+		if (mScatterConfig != 0) {
+			renderScattering();	
+		} else {
+			glClearColor(0, 0, 0, 0);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		}
+	mScatterBuffer.unbind();		
+
+	
+	blend();	
+}
+
+void HDRViewer::generateShadowMap() {
+	/*
+	//First step: Render from the light POV to a FBO, story depth values only
+	//glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,fboId);	//Rendering offscreen
+	
+	//Using the fixed pipeline to render to the depthbuffer
+	glUseProgramObjectARB(0);
+	
+	// In the case we render the shadowmap to a higher resolution, the viewport must be modified accordingly.
+	glViewport(0,0,width_ / shadow.downSampleFactor,height_ / shadow.downSampleFactor);
+	
+	// Clear previous frame values
+	glClear( GL_DEPTH_BUFFER_BIT);
+	
+	//Disable color rendering, we only want to write to the Z-Buffer
+	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE); 
+	
+	
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	mShadowCamera.setIdentity();
+	mShadowCamera.setFOV(45.0);
+	mShadowCamera.setSize(width_, height_);
+	mShadowCamera.setClippingPlanes(10, 40000);
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	double position_x = mScene.getLightPosition().x;
+	double position_y = mScene.getLightPosition().y;
+	double position_z = mScene.getLightPosition().z;
+	double lookAt_x = 1.0;
+	double lookAt_y = 0.0;
+	double lookAt_z = 0.0;
+	gluLookAt(position_x,position_y,position_z,lookAt_x,lookAt_y,lookAt_z,0,1,0);
+	
+	
+	// Culling switching, rendering only backface, this is done to avoid self-shadowing
+	glCullFace(GL_FRONT);
+	mScene.renderScene(mShadowCamera);
+	
+	//Save modelview/projection matrice into texture7, also add a biais
+	static double modelView[16];
+	static double projection[16];
+	
+	// This is matrix transform every coordinate x,y,z
+	// x = x* 0.5 + 0.5 
+	// y = y* 0.5 + 0.5 
+	// z = z* 0.5 + 0.5 
+	// Moving from unit cube [-1,1] to [0,1]  
+	const GLdouble bias[16] = {	
+		0.5, 0.0, 0.0, 0.0, 
+		0.0, 0.5, 0.0, 0.0,
+		0.0, 0.0, 0.5, 0.0,
+	0.5, 0.5, 0.5, 1.0};
+	
+	// Grab modelview and transformation matrices
+	glGetDoublev(GL_MODELVIEW_MATRIX, modelView);
+	glGetDoublev(GL_PROJECTION_MATRIX, projection);
+	
+	
+	glMatrixMode(GL_TEXTURE);
+	glActiveTextureARB(GL_TEXTURE7);
+	
+	glLoadIdentity();	
+	glLoadMatrixd(bias);
+	
+	// concatating all matrice into one.
+	glMultMatrixd (projection);
+	glMultMatrixd (modelView);
+	
+	// Go back to normal matrix mode
+	glMatrixMode(GL_MODELVIEW);
+	
+	// Now rendering from the camera POV, using the FBO to generate shadows
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT,0);
+	
+	glViewport(0,0,RENDER_WIDTH,RENDER_HEIGHT);
+	
+	//Enabling color write (previously disabled for light POV z-buffer rendering)
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE); 
+	
+	// Clear previous frame values
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	//Using the shadow shader
+	glUseProgramObjectARB(shadowShaderId);
+	glUniform1iARB(shadowMapUniform,7);
+	glActiveTextureARB(GL_TEXTURE7);
+	glBindTexture(GL_TEXTURE_2D,depthTextureId);
+	
+	
+	
 		
-	//*
-	blend();
+
+	
+	setupMatrices(p_camera[0],p_camera[1],p_camera[2],l_camera[0],l_camera[1],l_camera[2]);
+	
+	glCullFace(GL_BACK);
+	drawObjects();
 	//*/
 }
+
 
 void HDRViewer::renderCubeMap() {
 	/*
@@ -564,11 +602,11 @@ void HDRViewer::renderCubeMap() {
 	
 	glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
 
-	glEnable(GL_TEXTURE_CUBE_MAP_EXT);
+	glEnable(GL_TEXTURE_CUBE_MAP);
 	glEnable(GL_TEXTURE_GEN_S);
 	glEnable(GL_TEXTURE_GEN_T);
 	glEnable(GL_TEXTURE_GEN_R);
-	mCubeMap.bind();
+	//mCubeMap.bind();
 
 	// Draw a cube
 	float s = 500.0f;
@@ -608,82 +646,31 @@ void HDRViewer::renderCubeMap() {
 	glDisable(GL_TEXTURE_GEN_S);
 	glDisable(GL_TEXTURE_GEN_T);
 	glDisable(GL_TEXTURE_GEN_R);
-	glDisable(GL_TEXTURE_CUBE_MAP_EXT);//*/
-}
-
-void HDRViewer::draw_elements() {
-
-	// clear screen
-	//glEnable(GL_DEPTH_TEST);
-	//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	//glDisable(GL_CULL_FACE);
-	//glEnable(GL_MULTISAMPLE);
-	
-	glEnable(GL_DEPTH_TEST);
-	glClearColor(0, 0, 0, 0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	Matrix4 cameraInverse = m_camera.getTransformation().Inverse();
-	
-	Vector3 lightPosInCamera = cameraInverse * m_light.origin();
-	
-	mDiffuseShader.bind();
-	//mHdrTexture.setLayer(0);
-	//mHdrTexture.bind();
-			
-	mDiffuseShader.setMatrix4x4Uniform("worldcamera", cameraInverse);
-	
-	mDiffuseShader.setMatrix4x4Uniform("projection", m_camera.getProjectionMatrix());
-	mDiffuseShader.setMatrix3x3Uniform("worldcameraNormal", m_camera.getTransformation().Transpose());
-
-	mDiffuseShader.setVector3Uniform("lightposition", lightPosInCamera.x, lightPosInCamera.y, lightPosInCamera.z );
-	mDiffuseShader.setVector4Uniform("lightcolor", m_lightColor.x, m_lightColor.y, m_lightColor.z, 1.0);
-
-	// Draw mesh		
-	draw_object(mDiffuseShader, m_planet, true, true);
-	draw_object(mDiffuseShader, m_planet2, false, true);	
-	
-	mDiffuseShader.unbind();
-		
-	mSimpleShader.bind();
-	
-	mSimpleShader.setMatrix4x4Uniform("worldcamera", cameraInverse);
-	
-	mSimpleShader.setMatrix4x4Uniform("projection", m_camera.getProjectionMatrix());
-	//m_LightShader.setMatrix3x3Uniform("worldcameraNormal", m_camera.getTransformation().Transpose());
-	draw_object(mSimpleShader, m_sun, true, false);
-	
-	draw_object(mSimpleShader, m_stars, true, false);
-
-	mSimpleShader.unbind();//*/	
+	glDisable(GL_TEXTURE_CUBE_MAP);//*/
 }
 
 
 void HDRViewer::extractBrightAreas() {
 	glDisable(GL_DEPTH_TEST);	
-
-	
+		
 	mHdrTexture.bind();
-
 	mExtractBloomShader.bind();
 		
 	mExtractBloomShader.setIntUniform("texture", mHdrTexture.getLayer());
-	mExtractBloomShader.setFloatUniform("treshold", bloom.brightThreshold);
+	mExtractBloomShader.setFloatUniform("treshold", bloom.brightThreshold);	
 	
-	
-	renderCustomScreenQuad();
-
+	renderCustomScreenQuad(bloom.downSampleFactor);
 	
 	mExtractBloomShader.unbind();
 	mBloomTexture.bind();
 }
 
 void HDRViewer::renderBlur(float dx, float dy) {
-	
-	mBloomTexture.bind();
-	
 	Shader * sh = &mBlurShader[bloom.algorithmChoice];
+
+	mBloomTexture.bind();		
 	sh->bind();
+
 	sh->setIntUniform("texture", mBloomTexture.getLayer());	
 	sh->setVector2Uniform("orientation", dx*bloom.blurScale/width_, 
 											dy*bloom.blurScale/height_);
@@ -704,7 +691,35 @@ void HDRViewer::renderBlur(float dx, float dy) {
 		sh->setFloatArray("samples", samples, 10);		
 	}
 	
-	renderCustomScreenQuad();
+	renderCustomScreenQuad(bloom.downSampleFactor);
+	
+	sh->unbind();
+}
+
+
+void HDRViewer::renderScattering() {
+	mScatterTexture.bind();
+	
+	Matrix4 cameraInverse = m_camera.getTransformation().Inverse();	
+		
+	Vector4 tmp = m_camera.getProjectionMatrix() * cameraInverse *
+		Vector4(mScene.getLightPosition().x, mScene.getLightPosition().y, mScene.getLightPosition().z, 1.0);
+	Vector3 lightPosInCamera = Vector3(tmp.x, tmp.y, tmp.z) / tmp.w;	
+	Vector2 pos = Vector2(  ((lightPosInCamera.x + 1.0)/2.0),
+									((lightPosInCamera.y + 1.0)/2.0));
+
+	Shader * sh = &mScatterBlurShader;
+	sh->bind();
+	sh->setIntUniform("texture", mScatterTexture.getLayer());
+	sh->setVector2Uniform("lightPos", pos.x, pos.y);
+	sh->setFloatUniform("decay", scatter.decay);
+	sh->setFloatUniform("density", scatter.density);
+	sh->setFloatUniform("weight", scatter.weight);
+	sh->setIntUniform("samples", scatter.samples);
+	
+	
+	renderCustomScreenQuad(scatter.downSampleFactor);
+	
 	
 	sh->unbind();
 }
@@ -714,8 +729,11 @@ void HDRViewer::blend() {
 	glDisable(GL_DEPTH_TEST);
 	
 	mBlendShader.bind();
-	mBlendShader.setFloatUniform("exposure", mExposure);
-	mBlendShader.setFloatUniform("brightThreshold", 1.2f);
+	mBlendShader.setFloatUniform("exposure", tone.exposure);
+	mBlendShader.setFloatUniform("brightThreshold", tone.brightThreshold);
+	mBlendShader.setFloatUniform("textureRatio", tone.textureRatio);
+	mBlendShader.setFloatUniform("bloomRatio", tone.bloomRatio);
+	mBlendShader.setFloatUniform("scatterRatio", tone.scatterRatio);
 
 	//*
 	mHdrTexture.setLayer(0);
@@ -731,11 +749,15 @@ void HDRViewer::blend() {
 	mBloomTexture.bind();
 	mBlendShader.setIntUniform("bloom", mBloomTexture.getLayer());//*/
 	/*
-	mDownSampledTexture.setLayer(1);
-	mDownSampledTexture.bind();
-	mBlendShader.setIntUniform("bloom", mDownSampledTexture.getLayer());//*/
+	mScatterTexture.setLayer(1);
+	mScatterTexture.bind();
+	mBlendShader.setIntUniform("bloom", mScatterTexture.getLayer());//*/
 
 	//mBloomTexture.write("Tests\\bloom.tga");
+	//*
+	mScatterDownsampledTexture.setLayer(2);
+	mScatterDownsampledTexture.bind();
+	mBlendShader.setIntUniform("scatter", mScatterDownsampledTexture.getLayer());//*/
 
 	renderFullScreenQuad();
 
@@ -743,53 +765,7 @@ void HDRViewer::blend() {
 }
 
 
-void HDRViewer::draw_object(Shader& sh, Mesh3D& mesh, bool showTexture, bool useModelWorlNormal) {
-		
-	sh.setMatrix4x4Uniform("modelworld", mesh.getTransformation() );
-	if (useModelWorlNormal) {		
-		sh.setMatrix3x3Uniform("modelworldNormal", mesh.getTransformation().Inverse().Transpose());
-	}
-			
-	glEnableClientState(GL_VERTEX_ARRAY);
-	glEnableClientState(GL_NORMAL_ARRAY);
-	if(showTexture) {
-		glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-	}
-			
-	// NOTE: Use floats here!
-	glVertexPointer( 3, GL_DOUBLE, 0, mesh.getVertexPointer() );
-	glNormalPointer( GL_DOUBLE, 0, mesh.getNormalPointer() );
-	if(showTexture) {
-		glTexCoordPointer( 2, GL_DOUBLE, 0, mesh.getUvTextureCoordPointer() );
-	}	
 
-	for(unsigned int i = 0; i < mesh.getNumberOfParts(); i++)	{
-		bool hasTexture = showTexture && mesh.hasUvTextureCoord() && mesh.getMaterial(i).hasDiffuseTexture();
-
-		sh.setIntUniform("useTexture", hasTexture);
-		//sh.setFloatUniform("specularExp", mesh.getMaterial(i).m_specularExp);
-
-		sh.setVector4Uniform("diffuseColor", 
-							 mesh.getMaterial(i).m_diffuseColor.x, 
-							 mesh.getMaterial(i).m_diffuseColor.y, 
-							 mesh.getMaterial(i).m_diffuseColor.z, 1.0 );
-
-		if(hasTexture) {
-			mesh.getMaterial(i).m_diffuseTexture.bind();
-			sh.setIntUniform("texture", mesh.getMaterial(i).m_diffuseTexture.getLayer());			
-		}
-		glDrawElements( GL_TRIANGLES, mesh.getNumberOfFaces(i)*3, GL_UNSIGNED_INT, mesh.getVertexIndicesPointer(i) );
-		if(hasTexture) {
-			mesh.getMaterial(i).m_diffuseTexture.unbind();
-		}
-	}
-			
-	glDisableClientState(GL_NORMAL_ARRAY);
-	glDisableClientState(GL_VERTEX_ARRAY);
-	if(showTexture) {
-		glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-	}
-}
 
 
 void HDRViewer::renderFullScreenQuad() {
@@ -806,11 +782,11 @@ void HDRViewer::renderFullScreenQuad() {
 	glEnd();
 }
 
-void HDRViewer::renderCustomScreenQuad() {
+void HDRViewer::renderCustomScreenQuad(float downSampleFactor) {
 	// render full screen quad (note that vertex coordinates are already in opengl coordinates, so no transformation required!)
 	float vertexA = 1.0f;
 	float vertexB = -1.0f;
-	float texCoordA = bloom.downSampleFactor;
+	float texCoordA = downSampleFactor;
 	float texCoordB = 0.0f;
 	glBegin(GL_QUADS); 
 		glTexCoord2f(texCoordA, texCoordA);	glVertex2f(vertexA, vertexA);

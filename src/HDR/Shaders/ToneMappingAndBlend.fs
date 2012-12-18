@@ -1,16 +1,22 @@
-uniform sampler2D texture, bloom;
+uniform sampler2D texture, bloom, scatter;
+
+uniform float textureRatio;
+uniform float bloomRatio;
+uniform float scatterRatio;
+
 
 uniform float exposure;
 uniform float brightThreshold;
 
+
 		
 void main() {	
 
-	vec2 position = gl_TexCoord[0].st;
-	vec4 color = texture2D(texture, position);
-	vec4 bloomColor = texture2D(bloom, position);
+	vec2 position = gl_TexCoord[0].st;	
 	
-	color += bloomColor * 0.6; //Define ratio here	
+	vec4 color = textureRatio * texture2D(texture, position);
+	color += bloomRatio * texture2D(bloom, position);
+	color += scatterRatio * texture2D(scatter, position);
 	
 	//color = texture2D(bloom, position);	
 	
@@ -25,7 +31,7 @@ void main() {
 	
 	/*
 	color = texture2D(bloom, position) + texture2D(texture, position)*.00000001;
-	color = texture2D(texture, position);
+	//color = texture2D(texture, position);
 	
 	YD = exposure * (exposure/brightThreshold + 1.0) / (exposure + 1.0);
 	color *= YD;

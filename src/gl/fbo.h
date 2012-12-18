@@ -18,7 +18,8 @@ class FrameBufferObject
 		~FrameBufferObject();
 		void create(unsigned int _width,
 					unsigned int _height,
-					bool _withRenderBuffer = true);
+					bool _withRenderBuffer = true,
+					bool _enableColor = true);
 		//Attach a texture to the FBO
 		void attachTexture(unsigned int _position, unsigned int _textureID);
 		

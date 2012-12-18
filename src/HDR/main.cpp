@@ -5,7 +5,10 @@
 //=============================================================================
 
 #include "HDRViewer.h"
-#include "Scenes/HDRPlanets.h"
+#include "Scenes/Planets.h"
+#include "Scenes/Satellite.h"
+#include "Scenes/Scene.h"
+#include "../utils/Image.h"
 
 
 void pixelFunction(float * r, float * g, float * b) {
@@ -21,17 +24,18 @@ void pixelFunction(float * r, float * g, float * b) {
 	}
 }
 
+OtherScene scene;
+//Satellite scene(true);
+
 /**
  *	Starting method
  */
 int main(int argc, char **argv) {
-	bool createImage = true;
+	bool createImage = false;
 	bool render = true;
 
 	if (createImage) {
 		Image image;
-		//image.readTga("..\\..\\data\\sun\\textures\\sun");
-		//image.writeHdr("..\\..\\data\\sun\\textures\\sun2", pixelFunction);
 
 		image.readTga("..\\..\\data\\stars\\textures\\stars2");
 		image.writeHdr("..\\..\\data\\stars\\textures\\stars2", pixelFunction);
@@ -46,12 +50,8 @@ int main(int argc, char **argv) {
 	
 	// Load scene given in argument
 
-	argv[1] = "..\\..\\data\\bunny.obj";
-	argv[1] = "..\\..\\data\\earth\\earth.obj";
-	//argv[1] = "..\\..\\data\\planets\\mars.obj";
-
-	window.buildSolarSystem();
-
+	window.loadScene(scene);
+	
 	/*
 	if(argc == 2) {
 		window.loadMesh(argv[1]);

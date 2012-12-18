@@ -93,7 +93,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\gl\cubeMapTexture.cpp" />
-    <ClCompile Include="..\..\src\HDR\DownSampler.cpp" />
     <ClCompile Include="..\..\src\HDR\HDRViewer.cpp" />
     <ClCompile Include="..\..\src\HDR\main.cpp" />
     <ClCompile Include="..\..\src\gl\fbo.cpp" />
@@ -102,7 +101,10 @@
     <ClCompile Include="..\..\src\gl\shader.cpp" />
     <ClCompile Include="..\..\src\gl\texture.cpp" />
     <ClCompile Include="..\..\src\gl\TrackballViewer.cpp" />
-    <ClCompile Include="..\..\src\HDR\Scenes\HDRPlanets.cpp" />
+    <ClCompile Include="..\..\src\HDR\Scenes\OtherScene.cpp" />
+    <ClCompile Include="..\..\src\HDR\Scenes\Planets.cpp" />
+    <ClCompile Include="..\..\src\HDR\Scenes\Satellite.cpp" />
+    <ClCompile Include="..\..\src\HDR\Scenes\Scene.cpp" />
     <ClCompile Include="..\..\src\utils\Image.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -117,9 +119,11 @@
     <ClInclude Include="..\..\src\gl\shader.h" />
     <ClInclude Include="..\..\src\gl\texture.h" />
     <ClInclude Include="..\..\src\gl\TrackballViewer.h" />
-    <ClInclude Include="..\..\src\HDR\DownSampler.h" />
     <ClInclude Include="..\..\src\HDR\HDRViewer.h" />
-    <ClInclude Include="..\..\src\HDR\Scenes\HDRPlanets.h" />
+    <ClInclude Include="..\..\src\HDR\Scenes\OtherScene.h" />
+    <ClInclude Include="..\..\src\HDR\Scenes\Planets.h" />
+    <ClInclude Include="..\..\src\HDR\Scenes\Satellite.h" />
+    <ClInclude Include="..\..\src\HDR\Scenes\Scene.h" />
     <ClInclude Include="..\..\src\math\Matrix4.h" />
     <ClInclude Include="..\..\src\math\Pairing.h" />
     <ClInclude Include="..\..\src\math\Vector2.h" />

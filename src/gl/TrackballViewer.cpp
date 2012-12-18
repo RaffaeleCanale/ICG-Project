@@ -235,6 +235,27 @@ void TrackballViewer::motion(int x, int y) {
 
 			// translation
 			translation(x, y);
+	} else if ((button_down_[0] && button_down_[1]) ||
+		(button_down_[0] && (modifiers_==GLUT_ACTIVE_CTRL)))  {
+		if (last_point_ok_) {
+		Vector3  new_point_3D;
+		bool   new_point_ok;
+
+		new_point_ok = map_to_sphere(x, y, new_point_3D);
+
+		if (new_point_ok) {
+			Vector3 axis      = last_point_3D_.cross( new_point_3D );
+			float cos_angle =last_point_3D_.dot( new_point_3D );
+
+			if (fabs(cos_angle) < 1.0) {
+				axis.normalize();
+				float angle = 2.0*acos(cos_angle);
+				// rotate camera around point
+				//m_camera.rotateAroundAxisObject(Vector3(0,0,-m_camera_rotation_depth),axis,-angle);
+				m_camera.rotateObject(axis, -angle);
+			}
+		}
+	}
 	}  else if (button_down_[0])  {
 		// rotation
 		rotation(x, y);

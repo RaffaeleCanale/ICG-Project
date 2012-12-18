@@ -28,17 +28,17 @@ void CubeMapTexture::create(const std::string& dirName) {
 	assert(mId != 0);
 
 	glBindTexture(GL_TEXTURE_CUBE_MAP, mId);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP_EXT, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP_EXT, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP_EXT, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP_EXT, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 
-	GLenum sides[6] = {GL_TEXTURE_CUBE_MAP_POSITIVE_X_EXT, GL_TEXTURE_CUBE_MAP_NEGATIVE_X_EXT,
-					   GL_TEXTURE_CUBE_MAP_POSITIVE_Y_EXT, GL_TEXTURE_CUBE_MAP_NEGATIVE_Y_EXT,
-					   GL_TEXTURE_CUBE_MAP_POSITIVE_Z_EXT, GL_TEXTURE_CUBE_MAP_NEGATIVE_Z_EXT};
+	GLenum sides[6] = {GL_TEXTURE_CUBE_MAP_POSITIVE_X, GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
+					   GL_TEXTURE_CUBE_MAP_POSITIVE_Y, GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,
+					   GL_TEXTURE_CUBE_MAP_POSITIVE_Z, GL_TEXTURE_CUBE_MAP_NEGATIVE_Z};
 	for (int i = 0; i < 6; i++) {
-		glTexImage2D(sides[i], 0, GL_RGB16F_ARB, images[i].getWidth(), images[i].getHeight(), 0, GL_RGB, GL_FLOAT, images[i].getData());	
+		glTexImage2D(sides[i], 0, GL_RGBA16F_ARB, images[i].getWidth(), images[i].getHeight(), 0, GL_RGB, GL_FLOAT, images[i].getData());	
 	}
 	//images[0].write("tesadf.tga");
 	//glGenerateMipmapEXT(GL_TEXTURE_2D);	
@@ -47,9 +47,9 @@ void CubeMapTexture::create(const std::string& dirName) {
 
 void CubeMapTexture::bind() const {
 	assert(mId != 0);
-	//glEnable(GL_TEXTURE_2D); 
-	//glActiveTextureARB(GL_TEXTURE0_ARB+layer_); 
-	glBindTexture(GL_TEXTURE_CUBE_MAP_EXT, mId);
+	glEnable(GL_TEXTURE_CUBE_MAP); 
+	glActiveTextureARB(GL_TEXTURE0_ARB); 
+	glBindTexture(GL_TEXTURE_CUBE_MAP, mId);
 }
 
 

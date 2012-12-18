@@ -24,17 +24,65 @@
 #include "../gl/Light3D.h"
 #include "../gl/texture.h"
 #include "../gl/fbo.h"
-#include "../gl/cubeMapTexture.h"
+//#include "../gl/cubeMapTexture.h"
+#include "Scenes/Scene.h"
+#include "Scenes/Planets.h"
+#include "Scenes/OtherScene.h"
+#include "Scenes/Satellite.h"
+#include "../utils/StopWatch.h"
+
+#define SCENE_TYPE OtherScene
+
 //== CLASS DEFINITION =========================================================
 
-#define DOWN_SAMPLE_PASSES 1
+#define bloom_param_count 3
+#define tone_param_count 1
+#define scatter_param_count 2
 	      
 /*
  HDRViewer.
 */
 class HDRViewer : public TrackballViewer {
 public:
-   
+   	
+  HDRViewer(const char* _title, int _width, int _height);
+  
+	
+  void loadMesh(const std::string& filenameOBJ, const std::string& filenameMTL = std::string());
+
+  void loadScene(SCENE_TYPE scene);
+	
+
+protected:
+
+	// overloaded GUI function
+	virtual void init();
+	virtual void keyboard(int key, int x, int y);
+	virtual void special(int key, int x, int y);
+	virtual void reshape(int w, int h); 
+
+	virtual void idle();
+	
+	virtual void draw_scene(DrawMode _draw_mode);
+
+	
+
+private:	
+	typedef struct {
+		short currentPage;
+		short parametersCount;
+		char cursor;
+	} MENU_HELPER;
+
+	typedef struct {
+		float exposure;		
+		float brightThreshold;
+
+		float textureRatio;
+		float bloomRatio;
+		float scatterRatio;
+	} TONE_MAPPING_PARAMETERS;
+
 	typedef struct {
 		float downSampleFactor;
 
@@ -47,122 +95,83 @@ public:
 		char algorithmChoice;
 	} BLOOM_PARAMETERS;
 
+	typedef struct {
+		float downSampleFactor;
 
-  HDRViewer(const char* _title, int _width, int _height);
-  
-	
-  void loadMesh(const std::string& filenameOBJ, const std::string& filenameMTL = std::string());
+		float decay;
+		float density;
+		float weight;
 
-  void buildSolarSystem();
-	
+		int samples;
+	} SCATTER_PARAMETERS;
 
-protected:
 
-	// overloaded GUI function
-	virtual void init();
-	virtual void keyboard(int key, int x, int y);
-	virtual void special(int key, int x, int y);
-	virtual void reshape(int w, int h); 
-	
-	virtual void draw_scene(DrawMode _draw_mode);
+	void updateAndPrint(float increment);
+	float update(float parameter, float min, float max, float delta, bool cyclic, bool * needReshape = NULL);
 
-	
-
-private:	
-	
-	void blurEffectKey(int key);
-
-	void updateAndPrint(int increment, bool isCtrlPressed, bool isShiftPressed);
-	//float update(int line, float parameter, float min, float max, float delta, bool cyclic);
-	
-	float interpolateParameter(float parameter, float min, float max, float delta, bool isCtrlPressed, bool isShiftPressed, bool cyclic);
+	float incrementParameter(float parameter, float min, float max, float delta, bool cyclic);
 
 	void renderCubeMap();
-	void draw_elements();
+	void generateShadowMap();
+	//void renderScene();
 	void extractBrightAreas();
 	void renderBlur(float dx, float dy);
+	//void renderLight();
+	void renderScattering();
 	void blend();
 
-	//void draw_object(Shader& sh, Mesh3D& mesh);
-	void draw_object(Shader& sh, Mesh3D& mesh, bool showTexture, bool useModelWorlNormal);
+	//void drawObject(Shader& sh, Mesh3D& mesh, bool showTexture, bool useModelWorlNormal);
+	//void drawObjectSimple(Shader& sh, Mesh3D& mesh, bool useModelWorlNormal);
 
 	void renderFullScreenQuad();
-	void renderCustomScreenQuad();
+	void renderCustomScreenQuad(float downSampleScale);
 
-	//void renderHalfScreenQuad();
-	
+	// -------------------------------------
+	// ---------- ATTRIBURES --------------
+	// -------------------------------------
 
+	StopWatch mWatch;
+	float mCurrentTime;
+	bool mAnimate;
 
-protected:
-	
 	// frame buffer object for render2texture
 	FrameBufferObject mHdrBuffer;
-	FrameBufferObject mBloomBuffer;	
-
-	//FrameBufferObject mDownSampleBuffers[DOWN_SAMPLE_PASSES];
-	
-	// mesh object
-	CubeMapTexture mCubeMap;
-
-	Mesh3D m_sun;
-	Mesh3D m_planet;
-	Mesh3D m_planet2;
-
-	Mesh3D m_stars;
-
-	Light3D m_light;
-	Vector3 m_lightColor;
-
-	// HDR shader
-	Shader mDiffuseShader;
-	Shader mExtractBloomShader;
-	Shader mBlendShader;
-	Shader mSimpleShader;
-	
-	Shader mBlurShader[2];
-
-	Shader mNullShader;
-	
-	typedef struct {
-		short currentPage;
-		short parametersCount;
-		char cursor;
-	} MENU_HELPER;
-		
-
-	float mExposure;
-
+	FrameBufferObject mBloomBuffer;
+	FrameBufferObject mScatterBuffer;
 	
 
-	MENU_HELPER mMenu;
-	
-	BLOOM_PARAMETERS mBloomEffect[3];
-	char mBloomConfig;
-		
-	
-	// depth shader
-	//Shader m_depthShader;
-	
-	// edge shader
-	//Shader m_edgeShader;
-
-	// blending shader
-	//Shader m_blendingShader;
-	
-	// HDR shading texture
-	//Texture m_HDRShadingTexture;
-	
-	// HDR output texture
+	// Textures
 	Texture mHdrTexture;
 	Texture mBloomTexture;
+	Texture mScatterTexture;
+	Texture mScatterDownsampledTexture;
+
+	// mesh object	
+	SCENE_TYPE mScene;
+
+	// HDR shader	
+	Shader mFlareShader;
+
+	Shader mExtractBloomShader;		
+	Shader mBlendShader;
+
+	Shader mScatterBlurShader;
+	Shader mUniColorShader;
 	
-	// depth texture
-	//Texture m_depthTexture;
+	Shader mBlurShader[2];
 	
-	// edge texture
-	//Texture m_edgeTexture;
+	// Config variables		
+	MENU_HELPER mMenu;	
 	
-	
+	BLOOM_PARAMETERS mBloomEffect[bloom_param_count];
+	char mBloomConfig;
+
+	TONE_MAPPING_PARAMETERS mTone[tone_param_count];
+	char mToneConfig;
+
+	SCATTER_PARAMETERS mScatterEffect[scatter_param_count];
+	char mScatterConfig;
+		
 };
 
 

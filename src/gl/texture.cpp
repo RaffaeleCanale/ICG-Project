@@ -36,7 +36,8 @@ void Texture::create(unsigned int _width,
 					 unsigned int _format,
 					 unsigned int _type,
 					 void * _data,
-					 int _param) {
+					 int _param,
+					 int _param2) {
 	assert(_width <= 4096 && _height <= 4096);
 	clear();
 	width_ = _width;
@@ -47,10 +48,10 @@ void Texture::create(unsigned int _width,
 	glTexImage2D(GL_TEXTURE_2D, 0, _internalFormat, width_, height_, 0, _format, _type, _data);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, _param);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, _param);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, _param2);
+	glTexParameterf( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, _param2);
 	glBindTexture(GL_TEXTURE_2D, 0); 
 }
 
